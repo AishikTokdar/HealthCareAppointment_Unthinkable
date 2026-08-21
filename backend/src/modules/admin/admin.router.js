@@ -29,5 +29,6 @@ router.post('/leave-requests/:id/reject', adminController.handleRejectLeaveReque
 
 router.get('/stats', adminController.handleGetStats);
 router.get('/notifications', adminController.handleGetNotificationLog);
+router.get('/history', adminController.handleGetVisitHistory);
 
 module.exports = router;

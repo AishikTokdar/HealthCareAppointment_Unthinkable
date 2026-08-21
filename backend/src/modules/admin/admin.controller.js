@@ -120,6 +120,15 @@ async function handleGetNotificationLog(req, res, next) {
   }
 }
 
+async function handleGetVisitHistory(req, res, next) {
+  try {
+    const history = await adminService.getVisitHistory();
+    res.json(history);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   handleGetPendingDoctors,
   handleApproveDoctor,
@@ -133,5 +142,6 @@ module.exports = {
   handleRejectLeaveRequest,
   handleGetAllDoctors,
   handleGetStats,
-  handleGetNotificationLog
+  handleGetNotificationLog,
+  handleGetVisitHistory
 };

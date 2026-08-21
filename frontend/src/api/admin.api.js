@@ -13,5 +13,6 @@ export const adminApi = {
   approveLeaveRequest: (id) => client.post(`/admin/leave-requests/${id}/approve`),
   rejectLeaveRequest: (id, reason) => client.post(`/admin/leave-requests/${id}/reject`, { reason }),
   getStats: () => client.get('/admin/stats'),
-  getNotifications: () => client.get('/admin/notifications')
+  getNotifications: () => client.get('/admin/notifications'),
+  getVisitHistory: () => client.get('/admin/history')
 };

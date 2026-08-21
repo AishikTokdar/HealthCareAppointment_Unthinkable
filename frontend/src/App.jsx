@@ -20,6 +20,7 @@ import AdminDashboard from './pages/admin/Dashboard';
 import PendingDoctors from './pages/admin/PendingDoctors';
 import DoctorList from './pages/admin/DoctorList';
 import NotificationLog from './pages/admin/NotificationLog';
+import VisitHistory from './pages/admin/VisitHistory';
 
 import CalendarSuccess from './pages/CalendarSuccess';
 
@@ -53,6 +54,7 @@ export default function App() {
       <Route path="/admin/doctors/pending" element={<PrivateRoute allowedRoles={['ADMIN']}><PendingDoctors /></PrivateRoute>} />
       <Route path="/admin/doctors" element={<PrivateRoute allowedRoles={['ADMIN']}><DoctorList /></PrivateRoute>} />
       <Route path="/admin/notifications" element={<PrivateRoute allowedRoles={['ADMIN']}><NotificationLog /></PrivateRoute>} />
+      <Route path="/admin/history" element={<PrivateRoute allowedRoles={['ADMIN']}><VisitHistory /></PrivateRoute>} />
 
       <Route path="*" element={<Navigate to={getDefaultRedirect()} replace />} />
     </Routes>

@@ -6,7 +6,8 @@ import Sidebar from '../../components/layout/Sidebar';
 import UrgencyBadge from '../../components/ui/UrgencyBadge';
 import Modal from '../../components/ui/Modal';
 import { appointmentsApi } from '../../api/appointments.api';
-import { ArrowLeft, User, Clock, Pill, AlertCircle, Send, MessageSquare, Circle, XCircle } from 'lucide-react';
+import { generatePrescriptionPdf } from '../../utils/generatePrescriptionPdf';
+import { ArrowLeft, User, Clock, Pill, AlertCircle, Send, MessageSquare, Circle, XCircle, Download, FileText } from 'lucide-react';
 
 export default function PatientAppointmentDetail() {
   const { id } = useParams();
@@ -127,11 +128,22 @@ export default function PatientAppointmentDetail() {
             <h1 style={{ fontSize: 28, color: 'var(--text-primary)', marginBottom: 4 }}>Appointment Overview</h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Reference ID: {appointment.id}</p>
           </div>
-          {appointment.status === 'CONFIRMED' && (
-            <button onClick={() => setShowCancelModal(true)} className="btn-danger">
-              Cancel Booking
-            </button>
-          )}
+          <div style={{ display: 'flex', gap: 12 }}>
+            {appointment.visitNote && (
+              <button
+                onClick={() => generatePrescriptionPdf(appointment, 'PATIENT')}
+                className="btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+              >
+                <Download size={16} /> Download Prescription PDF
+              </button>
+            )}
+            {appointment.status === 'CONFIRMED' && (
+              <button onClick={() => setShowCancelModal(true)} className="btn-danger">
+                Cancel Booking
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="glass-card" style={{ padding: 28, marginBottom: 32 }}>
@@ -155,7 +167,6 @@ export default function PatientAppointmentDetail() {
               </div>
             </div>
 
-            {/* Doctor Real-time Online/Offline Status Indicator */}
             {appointment.status === 'CONFIRMED' && (
               <div style={{
                 display: 'flex',
@@ -205,7 +216,6 @@ export default function PatientAppointmentDetail() {
           </motion.div>
         )}
 
-        {/* Doctor Consultation Chat Room */}
         <div className="glass-card" style={{ padding: 28, marginBottom: 32 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <h3 style={{ fontSize: 18, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -283,9 +293,18 @@ export default function PatientAppointmentDetail() {
 
         {appointment.visitNote && (
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="glass-card" style={{ padding: 28 }}>
-            <h3 style={{ fontSize: 18, color: 'var(--text-primary)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Pill size={20} style={{ color: 'var(--accent-emerald)' }} /> Post-Visit Summary & Prescription
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ fontSize: 18, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Pill size={20} style={{ color: 'var(--accent-emerald)' }} /> Post-Visit Summary & Prescription
+              </h3>
+              <button
+                onClick={() => generatePrescriptionPdf(appointment, 'PATIENT')}
+                className="btn-secondary"
+                style={{ fontSize: 13, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <Download size={14} /> Download Official PDF
+              </button>
+            </div>
 
             <div style={{ marginBottom: 24 }}>
               <h4 style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Patient-Friendly Summary</h4>

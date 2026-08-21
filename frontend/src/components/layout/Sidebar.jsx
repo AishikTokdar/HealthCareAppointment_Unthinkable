@@ -34,6 +34,7 @@ export default function Sidebar() {
     { path: '/admin/dashboard', label: 'Overview', icon: Activity },
     { path: '/admin/doctors/pending', label: 'Pending Approvals', icon: UserCheck },
     { path: '/admin/doctors', label: 'Manage Doctors', icon: Users },
+    { path: '/admin/history', label: 'Visit History & PDFs', icon: FileText },
     { path: '/admin/notifications', label: 'Audit Logs', icon: Bell }
   ];
 

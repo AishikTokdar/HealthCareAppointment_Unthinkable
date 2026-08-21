@@ -477,6 +477,22 @@ async function getNotificationLog() {
   });
 }
 
+async function getVisitHistory() {
+  return prisma.appointment.findMany({
+    include: {
+      patient: { select: { id: true, name: true, email: true, phone: true } },
+      doctor: {
+        include: {
+          user: { select: { id: true, name: true, email: true, phone: true } }
+        }
+      },
+      symptomForm: true,
+      visitNote: true
+    },
+    orderBy: { startsAt: 'desc' }
+  });
+}
+
 module.exports = {
   getPendingDoctors,
   approveDoctor,
@@ -490,5 +506,6 @@ module.exports = {
   rejectLeaveRequest,
   getAllDoctors,
   getAdminStats,
-  getNotificationLog
+  getNotificationLog,
+  getVisitHistory
 };

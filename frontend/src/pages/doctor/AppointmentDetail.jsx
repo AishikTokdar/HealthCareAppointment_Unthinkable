@@ -5,7 +5,8 @@ import { AuthContext } from '../../context/AuthContext';
 import Sidebar from '../../components/layout/Sidebar';
 import UrgencyBadge from '../../components/ui/UrgencyBadge';
 import { appointmentsApi } from '../../api/appointments.api';
-import { ArrowLeft, User, Clock, AlertCircle, FileEdit, HelpCircle, CheckCircle2, MessageSquare, Send, Sparkles, CheckSquare, Play, XCircle, Circle } from 'lucide-react';
+import { generatePrescriptionPdf } from '../../utils/generatePrescriptionPdf';
+import { ArrowLeft, User, Clock, AlertCircle, FileEdit, HelpCircle, CheckCircle2, MessageSquare, Send, Sparkles, CheckSquare, Play, XCircle, Circle, Download } from 'lucide-react';
 
 export default function DoctorAppointmentDetail() {
   const { id } = useParams();
@@ -158,6 +159,15 @@ export default function DoctorAppointmentDetail() {
             <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Patient: {appointment.patient?.name}</p>
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
+            {appointment.visitNote && (
+              <button
+                onClick={() => generatePrescriptionPdf(appointment, 'DOCTOR')}
+                className="btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+              >
+                <Download size={16} /> Export Clinical PDF
+              </button>
+            )}
             {appointment.status === 'CONFIRMED' && (
               <button onClick={handleMarkCompleted} disabled={completingVisit} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: 8, borderColor: 'var(--accent-emerald)', color: 'var(--accent-emerald)' }}>
                 <CheckSquare size={16} /> {completingVisit ? 'Completing...' : 'Mark Visit Completed'}
@@ -192,7 +202,6 @@ export default function DoctorAppointmentDetail() {
               </div>
             </div>
 
-            {/* Patient Real-time Online/Offline Status Indicator */}
             {appointment.status === 'CONFIRMED' && (
               <div style={{
                 display: 'flex',
@@ -230,7 +239,6 @@ export default function DoctorAppointmentDetail() {
           </div>
         </div>
 
-        {/* Doctor-Only AI Diagnostic Questions & Briefing */}
         {appointment.symptomForm && (
           <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="glass-card" style={{ padding: 28, marginBottom: 32 }}>
             <h3 style={{ fontSize: 18, color: 'var(--text-primary)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -265,14 +273,12 @@ export default function DoctorAppointmentDetail() {
           </motion.div>
         )}
 
-        {/* Live Chat Consultation Section */}
         <div className="glass-card" style={{ padding: 28, marginBottom: 32 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <h3 style={{ fontSize: 18, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
               <MessageSquare size={20} style={{ color: 'var(--accent-violet)' }} /> Consultation Chat Room
             </h3>
 
-            {/* Chat Action Controls */}
             {appointment.status === 'CONFIRMED' && (
               <div style={{ display: 'flex', gap: 10 }}>
                 {chatStatus === 'NOT_STARTED' && (
@@ -382,9 +388,18 @@ export default function DoctorAppointmentDetail() {
 
         {appointment.visitNote && (
           <div className="glass-card" style={{ padding: 28 }}>
-            <h3 style={{ fontSize: 18, color: 'var(--text-primary)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <CheckCircle2 size={20} style={{ color: 'var(--accent-emerald)' }} /> Recorded Clinical Notes
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ fontSize: 18, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <CheckCircle2 size={20} style={{ color: 'var(--accent-emerald)' }} /> Recorded Clinical Notes
+              </h3>
+              <button
+                onClick={() => generatePrescriptionPdf(appointment, 'DOCTOR')}
+                className="btn-primary"
+                style={{ fontSize: 13, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <Download size={14} /> Export Clinical PDF
+              </button>
+            </div>
             <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 20 }}>{appointment.visitNote.clinicalNotes}</p>
             <h4 style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>Generated Patient Summary</h4>
             <p style={{ fontSize: 14, color: 'var(--text-primary)', background: 'var(--bg-surface)', padding: 16, borderRadius: 'var(--radius-md)' }}>{appointment.visitNote.patientSummary}</p>
