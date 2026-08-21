@@ -12,7 +12,7 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
 
-  const [specialisation, setSpecialisation] = useState('General Practice');
+  const [specialisation, setSpecialisation] = useState('General Medicine');
   const [slotDuration, setSlotDuration] = useState('30');
   const [bio, setBio] = useState('');
 
@@ -46,7 +46,10 @@ export default function Register() {
         navigate('/doctor/dashboard');
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Registration failed');
+      const detailMsg = err.response?.data?.details?.length
+        ? err.response.data.details.join(', ')
+        : err.response?.data?.error || 'Registration failed';
+      setError(detailMsg);
     } finally {
       setSubmitting(false);
     }
@@ -152,7 +155,7 @@ export default function Register() {
               className="input-field"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Dr. Sarah Jenkins or John Doe"
+              placeholder="Dr. Aarav Patel"
               required
             />
           </div>
@@ -164,7 +167,7 @@ export default function Register() {
               className="input-field"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
+              placeholder="aarav@clinic.in"
               required
             />
           </div>
@@ -188,7 +191,7 @@ export default function Register() {
               className="input-field"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="+1 (555) 000-0000"
+              placeholder="+91 98765 43210"
             />
           </div>
 
@@ -201,12 +204,15 @@ export default function Register() {
                   value={specialisation}
                   onChange={(e) => setSpecialisation(e.target.value)}
                 >
-                  <option value="General Practice">General Practice</option>
+                  <option value="General Medicine">General Medicine</option>
                   <option value="Cardiology">Cardiology</option>
                   <option value="Dermatology">Dermatology</option>
                   <option value="Neurology">Neurology</option>
                   <option value="Pediatrics">Pediatrics</option>
                   <option value="Orthopedics">Orthopedics</option>
+                  <option value="ENT (Ear, Nose, Throat)">ENT (Ear, Nose, Throat)</option>
+                  <option value="Gynecology">Gynecology</option>
+                  <option value="Ayurveda / AYUSH">Ayurveda / AYUSH</option>
                 </select>
               </div>
 
@@ -231,7 +237,7 @@ export default function Register() {
                   rows={3}
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  placeholder="Brief summary of clinical expertise..."
+                  placeholder="Senior Consultant Physician with 10+ years of clinical experience..."
                 />
               </div>
             </>

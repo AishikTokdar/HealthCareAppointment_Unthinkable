@@ -11,13 +11,13 @@ export default function SubmitVisitNote() {
 
   const [clinicalNotes, setClinicalNotes] = useState('');
   const [prescription, setPrescription] = useState([
-    { drug: '', dose: '', frequency: 'once daily', days: '7' }
+    { drug: '', dose: '', frequency: 'twice daily (BD)', days: '5' }
   ]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const handleAddMedication = () => {
-    setPrescription([...prescription, { drug: '', dose: '', frequency: 'once daily', days: '7' }]);
+    setPrescription([...prescription, { drug: '', dose: '', frequency: 'twice daily (BD)', days: '5' }]);
   };
 
   const handleRemoveMedication = (index) => {
@@ -89,18 +89,18 @@ export default function SubmitVisitNote() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               {prescription.map((med, idx) => (
-                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1.5fr 1fr 40px', gap: 12, alignItems: 'center', background: 'var(--bg-surface)', padding: 16, borderRadius: 'var(--radius-md)' }}>
+                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1.5fr 1.5fr 1fr 40px', gap: 12, alignItems: 'center', background: 'var(--bg-surface)', padding: 16, borderRadius: 'var(--radius-md)' }}>
                   <input
                     type="text"
                     className="input-field"
-                    placeholder="Drug Name (e.g. Amoxicillin)"
+                    placeholder="Drug (e.g. Paracetamol 650mg)"
                     value={med.drug}
                     onChange={(e) => handleMedChange(idx, 'drug', e.target.value)}
                   />
                   <input
                     type="text"
                     className="input-field"
-                    placeholder="Dose (e.g. 500mg)"
+                    placeholder="Dose (e.g. 1 tab after food)"
                     value={med.dose}
                     onChange={(e) => handleMedChange(idx, 'dose', e.target.value)}
                   />
@@ -109,15 +109,15 @@ export default function SubmitVisitNote() {
                     value={med.frequency}
                     onChange={(e) => handleMedChange(idx, 'frequency', e.target.value)}
                   >
-                    <option value="once daily">once daily</option>
-                    <option value="twice daily">twice daily</option>
-                    <option value="three times daily">three times daily</option>
+                    <option value="once daily (OD)">once daily (OD)</option>
+                    <option value="twice daily (BD)">twice daily (BD)</option>
+                    <option value="three times daily (TDS)">three times daily (TDS)</option>
                     <option value="every 8 hours">every 8 hours</option>
                   </select>
                   <input
                     type="text"
                     className="input-field"
-                    placeholder="Days (e.g. 7)"
+                    placeholder="Days (e.g. 5)"
                     value={med.days}
                     onChange={(e) => handleMedChange(idx, 'days', e.target.value)}
                   />

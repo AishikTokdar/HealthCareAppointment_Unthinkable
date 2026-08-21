@@ -79,7 +79,7 @@ export default function PatientAppointments() {
                     <p style={{ fontSize: 13, color: 'var(--accent-cyan)', marginBottom: 8 }}>{appt.doctor?.specialisation}</p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: 'var(--text-secondary)' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Clock size={14} /> {new Date(appt.startsAt).toLocaleString()}
+                        <Clock size={14} /> {new Date(appt.startsAt).toLocaleString('en-IN')}
                       </span>
                       <span style={{
                         padding: '2px 8px',

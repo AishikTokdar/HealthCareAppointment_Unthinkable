@@ -22,16 +22,26 @@ export default function DoctorSearch() {
       .finally(() => setLoading(false));
   };
 
-  const specialisations = ['General Practice', 'Cardiology', 'Dermatology', 'Neurology', 'Pediatrics', 'Orthopedics'];
+  const specialisations = [
+    'General Medicine',
+    'Cardiology',
+    'Dermatology',
+    'Neurology',
+    'Pediatrics',
+    'Orthopedics',
+    'ENT (Ear, Nose, Throat)',
+    'Gynecology',
+    'Ayurveda / AYUSH'
+  ];
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
       <Sidebar />
       <main style={{ flex: 1, padding: 40, maxWidth: 1200 }}>
         <h1 style={{ fontSize: 28, color: 'var(--text-primary)', marginBottom: 8 }}>Find a Specialist</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 32 }}>Select a doctor to view availability and schedule a appointment.</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 32 }}>Select a doctor to view availability and schedule an appointment.</p>
 
-        <div style={{ display: 'flex', gap: 12, marginBottom: 32, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 32, flexWrap: 'wrap' }}>
           <button
             onClick={() => setSpecialisation('')}
             className={!specialisation ? 'btn-primary' : 'btn-secondary'}
@@ -88,7 +98,7 @@ export default function DoctorSearch() {
                   </div>
 
                   <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, lineClamp: 2, display: '-webkit-box', WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {doc.bio || 'Experienced clinical specialist providing patient-centered care.'}
+                    {doc.bio || 'Experienced clinical specialist providing patient-centered healthcare.'}
                   </p>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-muted)', marginBottom: 24 }}>

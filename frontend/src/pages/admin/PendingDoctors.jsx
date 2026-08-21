@@ -75,7 +75,7 @@ export default function PendingDoctors() {
                 <div>
                   <h3 style={{ fontSize: 18, color: 'var(--text-primary)', marginBottom: 4 }}>Dr. {doc.user?.name}</h3>
                   <p style={{ fontSize: 14, color: 'var(--accent-cyan)', marginBottom: 6 }}>{doc.specialisation} • {doc.slotDuration} mins slot</p>
-                  <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Email: {doc.user?.email} • Applied: {new Date(doc.user?.createdAt).toLocaleDateString()}</p>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Email: {doc.user?.email} • Applied: {new Date(doc.user?.createdAt).toLocaleDateString('en-IN')}</p>
                 </div>
 
                 <div style={{ display: 'flex', gap: 12 }}>

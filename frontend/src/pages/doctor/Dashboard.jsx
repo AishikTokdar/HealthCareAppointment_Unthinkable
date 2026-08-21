@@ -5,6 +5,7 @@ import { AuthContext } from '../../context/AuthContext';
 import Sidebar from '../../components/layout/Sidebar';
 import UrgencyBadge from '../../components/ui/UrgencyBadge';
 import { doctorsApi } from '../../api/doctors.api';
+import { calendarApi } from '../../api/calendar.api';
 import { Calendar, User, Clock, CheckCircle2, ChevronRight, AlertCircle } from 'lucide-react';
 
 export default function DoctorDashboard() {
@@ -18,6 +19,15 @@ export default function DoctorDashboard() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  const handleConnectCalendar = async () => {
+    try {
+      const res = await calendarApi.getAuthUrl();
+      window.location.href = res.data.url;
+    } catch (err) {
+      alert('Failed to connect Google Calendar');
+    }
+  };
 
   if (user?.approvalStatus === 'PENDING') {
     return (
@@ -43,7 +53,34 @@ export default function DoctorDashboard() {
         <h1 style={{ fontSize: 28, color: 'var(--text-primary)', marginBottom: 4 }}>
           Welcome, <span className="gradient-text">Dr. {user?.name}</span>
         </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 32 }}>Here is your clinical appointment schedule and pre-visit AI symptom briefings.</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 24 }}>Here is your clinical appointment schedule and pre-visit AI symptom briefings.</p>
+
+        {!user?.hasGcalConnected && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass-card"
+            style={{
+              padding: 20,
+              marginBottom: 32,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderLeft: '4px solid var(--accent-cyan)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <Calendar size={28} style={{ color: 'var(--accent-cyan)' }} />
+              <div>
+                <h4 style={{ fontSize: 16, color: 'var(--text-primary)' }}>Sync with Google Calendar</h4>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Automatically add your patient appointments to your personal schedule.</p>
+              </div>
+            </div>
+            <button onClick={handleConnectCalendar} className="btn-secondary" style={{ fontSize: 13, padding: '8px 16px' }}>
+              Connect Now
+            </button>
+          </motion.div>
+        )}
 
         {loading ? (
           <div style={{ color: 'var(--text-muted)' }}>Loading schedule...</div>

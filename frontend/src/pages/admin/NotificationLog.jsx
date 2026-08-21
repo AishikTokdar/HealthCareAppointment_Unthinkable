@@ -31,7 +31,7 @@ export default function NotificationLog() {
                   <th style={{ padding: '14px 20px' }}>Type</th>
                   <th style={{ padding: '14px 20px' }}>Status</th>
                   <th style={{ padding: '14px 20px' }}>Attempts</th>
-                  <th style={{ padding: '14px 20px' }}>Created At</th>
+                  <th style={{ padding: '14px 20px' }}>Created At (IST)</th>
                 </tr>
               </thead>
               <tbody>
@@ -56,7 +56,7 @@ export default function NotificationLog() {
                     </td>
                     <td style={{ padding: '14px 20px' }}>{log.attempts}</td>
                     <td style={{ padding: '14px 20px', fontSize: 13, color: 'var(--text-secondary)' }}>
-                      {new Date(log.createdAt).toLocaleString()}
+                      {new Date(log.createdAt).toLocaleString('en-IN')}
                     </td>
                   </tr>
                 ))}

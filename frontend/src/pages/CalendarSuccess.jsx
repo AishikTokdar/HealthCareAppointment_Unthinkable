@@ -1,9 +1,23 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../context/AuthContext';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function CalendarSuccess() {
+  const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  const handleReturn = () => {
+    if (!user) {
+      navigate('/login');
+    } else if (user.role === 'DOCTOR') {
+      navigate('/doctor/dashboard');
+    } else if (user.role === 'ADMIN') {
+      navigate('/admin/dashboard');
+    } else {
+      navigate('/patient/dashboard');
+    }
+  };
 
   return (
     <div style={{
@@ -20,7 +34,7 @@ export default function CalendarSuccess() {
         <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 24 }}>
           Your Google Calendar has been successfully linked. Appointments will now sync automatically.
         </p>
-        <button onClick={() => navigate('/patient/dashboard')} className="btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
+        <button onClick={handleReturn} className="btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
           Return to Dashboard
         </button>
       </div>
