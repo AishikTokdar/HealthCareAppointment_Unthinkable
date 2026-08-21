@@ -92,7 +92,7 @@ export default function DoctorSearch() {
                       <User size={28} />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: 18, color: 'var(--text-primary)' }}>Dr. {doc.user?.name}</h3>
+                      <h3 style={{ fontSize: 18, color: 'var(--text-primary)' }}>{doc.user?.name}</h3>
                       <span style={{ fontSize: 13, color: 'var(--accent-cyan)', fontWeight: 500 }}>{doc.specialisation}</span>
                     </div>
                   </div>

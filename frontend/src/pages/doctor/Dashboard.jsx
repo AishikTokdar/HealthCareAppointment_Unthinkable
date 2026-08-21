@@ -6,17 +6,22 @@ import Sidebar from '../../components/layout/Sidebar';
 import UrgencyBadge from '../../components/ui/UrgencyBadge';
 import { doctorsApi } from '../../api/doctors.api';
 import { calendarApi } from '../../api/calendar.api';
-import { Calendar, User, Clock, CheckCircle2, ChevronRight, AlertCircle } from 'lucide-react';
+import { Calendar, User, Clock, CheckCircle2, ChevronRight, AlertCircle, ShieldAlert } from 'lucide-react';
 
 export default function DoctorDashboard() {
   const { user } = useContext(AuthContext);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [apiPending, setApiPending] = useState(false);
 
   useEffect(() => {
     doctorsApi.getDoctorAppointments()
       .then(res => setAppointments(res.data))
-      .catch(console.error)
+      .catch(err => {
+        if (err.response?.data?.approvalStatus === 'PENDING' || err.response?.status === 403) {
+          setApiPending(true);
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -29,18 +34,30 @@ export default function DoctorDashboard() {
     }
   };
 
-  if (user?.approvalStatus === 'PENDING') {
+  const isPending = user?.approvalStatus === 'PENDING' || user?.doctorProfile?.approvalStatus === 'PENDING' || apiPending;
+
+  if (isPending) {
     return (
       <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
         <Sidebar />
         <main style={{ flex: 1, padding: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="glass-card" style={{ padding: 40, maxWidth: 500, textAlign: 'center' }}>
-            <AlertCircle size={48} style={{ color: 'var(--accent-amber)', marginBottom: 16 }} />
-            <h2 style={{ fontSize: 22, color: 'var(--text-primary)', marginBottom: 8 }}>Account Pending Approval</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-              Your doctor registration profile has been submitted and is currently being reviewed by clinic administration. You will be notified via email once approved.
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="glass-card"
+            style={{ padding: 48, maxWidth: 540, textAlign: 'center', borderTop: '4px solid var(--accent-amber)' }}
+          >
+            <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(245, 158, 11, 0.15)', color: 'var(--accent-amber)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+              <ShieldAlert size={36} />
+            </div>
+            <h2 style={{ fontSize: 24, color: 'var(--text-primary)', marginBottom: 12 }}>Account Pending Approval</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 15, lineHeight: 1.6, marginBottom: 24 }}>
+              Your doctor profile registration is currently being reviewed by clinic administration. Access to clinical schedules, patient briefings, and consultations is restricted until approval.
             </p>
-          </div>
+            <div style={{ background: 'var(--bg-surface)', padding: '14px 20px', borderRadius: 'var(--radius-md)', fontSize: 13, color: 'var(--accent-amber)', fontWeight: 500 }}>
+              💡 Please contact the clinic administrator to review and approve your account.
+            </div>
+          </motion.div>
         </main>
       </div>
     );
@@ -51,7 +68,7 @@ export default function DoctorDashboard() {
       <Sidebar />
       <main style={{ flex: 1, padding: 40, maxWidth: 1100 }}>
         <h1 style={{ fontSize: 28, color: 'var(--text-primary)', marginBottom: 4 }}>
-          Welcome, <span className="gradient-text">Dr. {user?.name}</span>
+          Welcome, <span className="gradient-text">{user?.name}</span>
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 24 }}>Here is your clinical appointment schedule and pre-visit AI symptom briefings.</p>
 
@@ -115,7 +132,7 @@ export default function DoctorDashboard() {
                     <h3 style={{ fontSize: 16, color: 'var(--text-primary)', marginBottom: 4 }}>{appt.patient?.name}</h3>
                     <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>
                       <Clock size={14} style={{ display: 'inline', marginRight: 4 }} />
-                      {new Date(appt.startsAt).toLocaleString()}
+                      {new Date(appt.startsAt).toLocaleString('en-IN')}
                     </p>
                     {appt.symptomForm?.chiefComplaint && (
                       <p style={{ fontSize: 13, color: 'var(--accent-cyan)', fontStyle: 'italic' }}>

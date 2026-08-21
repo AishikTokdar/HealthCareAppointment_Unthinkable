@@ -81,7 +81,7 @@ export default function DoctorList() {
         ...regForm,
         slotDuration: parseInt(regForm.slotDuration, 10)
       });
-      setRegSuccess(`Doctor Dr. ${regForm.name} registered and approved successfully!`);
+      setRegSuccess(`Doctor ${regForm.name} registered and approved successfully!`);
       setRegForm({
         name: '',
         email: '',
@@ -144,7 +144,7 @@ export default function DoctorList() {
                     <User size={24} />
                   </div>
                   <div>
-                    <h3 style={{ fontSize: 16, color: 'var(--text-primary)' }}>Dr. {doc.user?.name}</h3>
+                    <h3 style={{ fontSize: 16, color: 'var(--text-primary)' }}>{doc.user?.name}</h3>
                     <span style={{ fontSize: 13, color: 'var(--accent-cyan)' }}>{doc.specialisation}</span>
                     <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Status: {doc.approvalStatus}</div>
                   </div>
@@ -300,7 +300,7 @@ export default function DoctorList() {
         </Modal>
 
         {/* Modal for Leave Scheduling */}
-        <Modal isOpen={showLeaveModal} onClose={() => setShowLeaveModal(false)} title={`Schedule Leave - Dr. ${selectedDoctor?.user?.name}`}>
+        <Modal isOpen={showLeaveModal} onClose={() => setShowLeaveModal(false)} title={`Schedule Leave - ${selectedDoctor?.user?.name}`}>
           <form onSubmit={handleAddLeave}>
             <div style={{ marginBottom: 16 }}>
               <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>Leave Date</label>

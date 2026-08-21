@@ -72,7 +72,7 @@ async function rejectDoctor(doctorId, reason) {
 async function createDoctorDirectly(data) {
   const { email, password, name, phone, specialisation, slotDuration, workingHours, bio } = data;
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
   if (existing) {
     const error = new Error('Email already registered');
     error.statusCode = 409;
@@ -84,7 +84,7 @@ async function createDoctorDirectly(data) {
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
-        email,
+        email: email.toLowerCase(),
         passwordHash,
         name,
         phone,
@@ -102,7 +102,8 @@ async function createDoctorDirectly(data) {
           TUE: { start: '09:00', end: '17:00' },
           WED: { start: '09:00', end: '17:00' },
           THU: { start: '09:00', end: '17:00' },
-          FRI: { start: '09:00', end: '17:00' }
+          FRI: { start: '09:00', end: '17:00' },
+          SAT: { start: '09:00', end: '17:00' }
         },
         bio,
         approvalStatus: 'APPROVED'
@@ -188,6 +189,35 @@ async function addDoctorLeave(doctorId, dateString, reason) {
       });
     }
 
+    const adminUsers = await tx.user.findMany({
+      where: { role: 'ADMIN' }
+    });
+
+    const cancelledDetails = affectedAppointments.map(appt => ({
+      patientName: appt.patient.name,
+      patientEmail: appt.patient.email,
+      patientPhone: appt.patient.phone || 'N/A',
+      startsAt: appt.startsAt
+    }));
+
+    for (const admin of adminUsers) {
+      await tx.notification.create({
+        data: {
+          userId: admin.id,
+          type: 'LEAVE_CONFLICT',
+          payload: {
+            isAdminSummary: true,
+            doctorName: doctorProfile.user.name,
+            specialisation: doctorProfile.specialisation,
+            leaveDate: dateString,
+            reason: reason || 'Not specified',
+            cancelledCount: affectedAppointments.length,
+            cancelledAppointments: cancelledDetails
+          }
+        }
+      });
+    }
+
     return leave;
   });
 
@@ -196,7 +226,7 @@ async function addDoctorLeave(doctorId, dateString, reason) {
       await deleteCalendarEvent(appt.patient.gcalTokens, appt.gcalEventId);
     }
     if (appt.gcalDoctorEventId && doctorProfile.user.gcalTokens) {
-      await deleteCalendarEvent(doctorProfile.user.gcalTokens, appt.gcalDoctorEventId);
+      await deleteCalendarEvent(doctorProfile.user.gcalTokens, doctorProfile.user.gcalDoctorEventId);
     }
   }
 

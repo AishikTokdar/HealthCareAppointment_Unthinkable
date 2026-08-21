@@ -66,7 +66,8 @@ async function registerDoctor(data) {
           TUE: { start: '09:00', end: '17:00' },
           WED: { start: '09:00', end: '17:00' },
           THU: { start: '09:00', end: '17:00' },
-          FRI: { start: '09:00', end: '17:00' }
+          FRI: { start: '09:00', end: '17:00' },
+          SAT: { start: '09:00', end: '17:00' }
         },
         bio,
         approvalStatus: 'PENDING'
@@ -153,9 +154,16 @@ async function getMe(userId) {
     throw error;
   }
 
+  const notifications = await prisma.notification.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    take: 10
+  });
+
   return {
     ...user,
-    hasGcalConnected: !!user.gcalTokens
+    hasGcalConnected: !!user.gcalTokens,
+    notifications
   };
 }
 

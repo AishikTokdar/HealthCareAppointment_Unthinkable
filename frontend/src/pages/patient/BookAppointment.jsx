@@ -104,7 +104,7 @@ export default function BookAppointment() {
             <User size={30} />
           </div>
           <div>
-            <h2 style={{ fontSize: 20, color: 'var(--text-primary)' }}>Dr. {doctor?.user?.name}</h2>
+            <h2 style={{ fontSize: 20, color: 'var(--text-primary)' }}>{doctor?.user?.name}</h2>
             <p style={{ fontSize: 14, color: 'var(--accent-cyan)' }}>{doctor?.specialisation} • {doctor?.slotDuration} mins slot</p>
           </div>
         </div>

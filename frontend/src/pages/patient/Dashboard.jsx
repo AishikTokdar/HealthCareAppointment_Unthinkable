@@ -6,7 +6,7 @@ import Sidebar from '../../components/layout/Sidebar';
 import UrgencyBadge from '../../components/ui/UrgencyBadge';
 import { appointmentsApi } from '../../api/appointments.api';
 import { calendarApi } from '../../api/calendar.api';
-import { Calendar, Plus, Clock, User, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Calendar, Plus, Clock, User, CheckCircle2, AlertCircle, Bell, ShieldAlert } from 'lucide-react';
 
 export default function PatientDashboard() {
   const { user } = useContext(AuthContext);
@@ -32,6 +32,8 @@ export default function PatientDashboard() {
     }
   };
 
+  const leaveAlerts = user?.notifications?.filter(n => n.type === 'LEAVE_CONFLICT' || n.type === 'CANCELLATION') || [];
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
       <Sidebar />
@@ -47,6 +49,38 @@ export default function PatientDashboard() {
             <Plus size={18} /> Book New Visit
           </Link>
         </div>
+
+        {leaveAlerts.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+            {leaveAlerts.map((n) => (
+              <motion.div
+                key={n.id}
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="glass-card"
+                style={{
+                  padding: 16,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 16,
+                  borderLeft: '4px solid var(--accent-rose)',
+                  background: 'rgba(244, 63, 94, 0.08)'
+                }}
+              >
+                <ShieldAlert size={24} style={{ color: 'var(--accent-rose)', flexShrink: 0 }} />
+                <div>
+                  <h4 style={{ fontSize: 14, color: 'var(--text-primary)', marginBottom: 2 }}>
+                    Schedule Alert: Appointment Cancelled
+                  </h4>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                    {n.payload?.doctorName ? `${n.payload.doctorName} is unavailable on scheduled leave.` : 'An appointment was cancelled due to doctor schedule changes.'}{' '}
+                    Please select an alternative time slot.
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
 
         {!user?.hasGcalConnected && (
           <motion.div
@@ -128,7 +162,7 @@ export default function PatientDashboard() {
                     <User size={24} />
                   </div>
                   <div>
-                    <h3 style={{ fontSize: 16, color: 'var(--text-primary)', marginBottom: 4 }}>Dr. {appt.doctor?.user?.name}</h3>
+                    <h3 style={{ fontSize: 16, color: 'var(--text-primary)', marginBottom: 4 }}>{appt.doctor?.user?.name}</h3>
                     <p style={{ fontSize: 13, color: 'var(--accent-cyan)', marginBottom: 8 }}>{appt.doctor?.specialisation}</p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: 'var(--text-secondary)' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

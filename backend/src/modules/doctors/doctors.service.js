@@ -66,11 +66,15 @@ async function getDoctorSlots(doctorId, dateString) {
   const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
   const dayName = daysOfWeek[queryDate.getDay()];
 
-  const workingHours = doctor.workingHours || {};
-  const daySchedule = workingHours[dayName];
+  if (dayName === 'SUN') {
+    return { available: false, reason: 'Clinic is closed on Sunday', slots: [] };
+  }
 
-  if (!daySchedule || !daySchedule.start || !daySchedule.end) {
-    return { available: false, reason: 'Doctor does not work on this day', slots: [] };
+  const workingHours = doctor.workingHours || {};
+  const daySchedule = workingHours[dayName] || { start: '09:00', end: '17:00' };
+
+  if (!daySchedule.start || !daySchedule.end) {
+    return { available: false, reason: 'Clinic is closed on this day', slots: [] };
   }
 
   const [startH, startM] = daySchedule.start.split(':').map(Number);

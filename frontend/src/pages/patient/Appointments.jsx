@@ -75,7 +75,7 @@ export default function PatientAppointments() {
                     <User size={24} />
                   </div>
                   <div>
-                    <h3 style={{ fontSize: 16, color: 'var(--text-primary)', marginBottom: 4 }}>Dr. {appt.doctor?.user?.name}</h3>
+                    <h3 style={{ fontSize: 16, color: 'var(--text-primary)', marginBottom: 4 }}>{appt.doctor?.user?.name}</h3>
                     <p style={{ fontSize: 13, color: 'var(--accent-cyan)', marginBottom: 8 }}>{appt.doctor?.specialisation}</p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: 'var(--text-secondary)' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

@@ -88,7 +88,7 @@ export default function PatientAppointmentDetail() {
               <User size={30} />
             </div>
             <div>
-              <h2 style={{ fontSize: 20, color: 'var(--text-primary)' }}>Dr. {appointment.doctor?.user?.name}</h2>
+              <h2 style={{ fontSize: 20, color: 'var(--text-primary)' }}>{appointment.doctor?.user?.name}</h2>
               <p style={{ fontSize: 14, color: 'var(--accent-cyan)' }}>{appointment.doctor?.specialisation}</p>
             </div>
           </div>
@@ -96,7 +96,7 @@ export default function PatientAppointmentDetail() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20, paddingTop: 20, borderTop: '1px solid var(--border-light)' }}>
             <div>
               <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Date & Time</span>
-              <strong style={{ fontSize: 14, color: 'var(--text-primary)' }}>{new Date(appointment.startsAt).toLocaleString()}</strong>
+              <strong style={{ fontSize: 14, color: 'var(--text-primary)' }}>{new Date(appointment.startsAt).toLocaleString('en-IN')}</strong>
             </div>
             <div>
               <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Status</span>
@@ -168,7 +168,7 @@ export default function PatientAppointmentDetail() {
 
         <Modal isOpen={showCancelModal} onClose={() => setShowCancelModal(false)} title="Cancel Appointment">
           <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 16 }}>
-            Are you sure you want to cancel your appointment with Dr. {appointment.doctor?.user?.name}?
+            Are you sure you want to cancel your appointment with {appointment.doctor?.user?.name}?
           </p>
           <textarea
             className="input-field"

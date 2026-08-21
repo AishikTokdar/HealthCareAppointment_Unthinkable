@@ -73,7 +73,7 @@ export default function PendingDoctors() {
                 style={{ padding: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
               >
                 <div>
-                  <h3 style={{ fontSize: 18, color: 'var(--text-primary)', marginBottom: 4 }}>Dr. {doc.user?.name}</h3>
+                  <h3 style={{ fontSize: 18, color: 'var(--text-primary)', marginBottom: 4 }}>{doc.user?.name}</h3>
                   <p style={{ fontSize: 14, color: 'var(--accent-cyan)', marginBottom: 6 }}>{doc.specialisation} • {doc.slotDuration} mins slot</p>
                   <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Email: {doc.user?.email} • Applied: {new Date(doc.user?.createdAt).toLocaleDateString('en-IN')}</p>
                 </div>
@@ -104,7 +104,7 @@ export default function PendingDoctors() {
 
         <Modal isOpen={showRejectModal} onClose={() => setShowRejectModal(false)} title="Reject Doctor Application">
           <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 16 }}>
-            Provide rejection feedback for Dr. {selectedDoctor?.user?.name}:
+            Provide rejection feedback for {selectedDoctor?.user?.name}:
           </p>
           <textarea
             className="input-field"
