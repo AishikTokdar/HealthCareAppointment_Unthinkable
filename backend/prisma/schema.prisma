@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum LLMStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum NotificationType {
+  BOOKING_CONFIRM
+  APPOINTMENT_REMINDER
+  CANCELLATION
+  LEAVE_CONFLICT
+  MED_REMINDER
+  DOCTOR_APPROVED
+  DOCTOR_REJECTED
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+enum DoctorApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id              String               @id @default(uuid())
+  email           String               @unique
+  passwordHash    String
+  role            Role
+  name            String
+  phone           String?
+  gcalTokens      Json?
+  createdAt       DateTime             @default(now())
+  appointments    Appointment[]        @relation("PatientAppointments")
+  doctorProfile   DoctorProfile?
+  notifications   Notification[]
+  reminders       MedicationReminder[]
+}
+
+model DoctorProfile {
+  id             String               @id @default(uuid())
+  userId         String               @unique
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialisation String
+  slotDuration   Int
+  workingHours   Json
+  bio            String?
+  avatarUrl      String?
+  approvalStatus DoctorApprovalStatus @default(PENDING)
+  isActive       Boolean              @default(true)
+  appointments   Appointment[]
+  leaveDays      LeaveDay[]
+}
+
+model LeaveDay {
+  id       String        @id @default(uuid())
+  doctorId String
+  doctor   DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  date     DateTime      @db.Date
+  reason   String?
+
+  @@unique([doctorId, date])
+}
+
+model Appointment {
+  id                String            @id @default(uuid())
+  patientId         String
+  patient           User              @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId          String
+  doctor            DoctorProfile     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  startsAt          DateTime
+  endsAt            DateTime
+  status            AppointmentStatus @default(PENDING)
+  holdExpiresAt     DateTime?
+  gcalEventId       String?
+  gcalDoctorEventId String?
+  createdAt         DateTime          @default(now())
+  symptomForm       SymptomForm?
+  visitNote         VisitNote?
+
+  @@unique([doctorId, startsAt])
+  @@index([patientId])
+  @@index([doctorId, startsAt])
+}
+
+model SymptomForm {
+  id             String      @id @default(uuid())
+  appointmentId  String      @unique
+  appointment    Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  rawSymptoms    String
+  urgency        String?
+  chiefComplaint String?
+  suggestedQs    Json?
+  llmRawOutput   String?
+  llmStatus      LLMStatus   @default(PENDING)
+  createdAt      DateTime    @default(now())
+}
+
+model VisitNote {
+  id             String               @id @default(uuid())
+  appointmentId  String               @unique
+  appointment    Appointment          @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  clinicalNotes  String
+  prescription   Json
+  patientSummary String?
+  llmRawOutput   String?
+  llmStatus      LLMStatus            @default(PENDING)
+  createdAt      DateTime             @default(now())
+  reminders      MedicationReminder[]
+}
+
+model MedicationReminder {
+  id           String    @id @default(uuid())
+  visitNoteId  String
+  visitNote    VisitNote @relation(fields: [visitNoteId], references: [id], onDelete: Cascade)
+  patientId    String
+  patient      User      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  drug         String
+  dose         String
+  frequency    String
+  nextRemindAt DateTime
+  doneAt       DateTime?
+}
+
+model Notification {
+  id          String             @id @default(uuid())
+  userId      String
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        NotificationType
+  status      NotificationStatus @default(QUEUED)
+  attempts    Int                @default(0)
+  nextRetryAt DateTime           @default(now())
+  payload     Json
+  sentAt      DateTime?
+  createdAt   DateTime           @default(now())
+
+  @@index([status, nextRetryAt])
+}
