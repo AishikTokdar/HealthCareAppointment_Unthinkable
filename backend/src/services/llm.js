@@ -100,7 +100,7 @@ async function callGroqText(promptText) {
 async function generatePreVisitSummary(symptoms) {
   const emergencyCheck = assessEmergencyRule(symptoms);
 
-  const promptText = `Perform a clinical triage analysis on the following patient symptoms.
+  const promptText = `Perform a clinical triage analysis on the following patient symptoms in clean Indian English clinical style.
 Classify urgency strictly into one of three categories:
 - "High": Critical red-flag symptoms, severe pain, breathing issues, or acute distress.
 - "Medium": Moderate ongoing symptoms, infection signs, or discomfort requiring timely medical review.
@@ -142,7 +142,7 @@ Symptoms: ${symptoms}`;
 }
 
 async function generatePostVisitSummary(clinicalNotes, prescription) {
-  const promptText = `Convert these clinical notes into a patient-friendly summary with medication schedule and follow-up steps: ${clinicalNotes}. Prescription info: ${JSON.stringify(prescription)}. Return valid JSON only with keys "patientSummary", "medicationSchedule", and "followUpSteps".`;
+  const promptText = `Convert these clinical notes into a patient-friendly summary in clean Indian English with medication schedule and follow-up steps: ${clinicalNotes}. Prescription info: ${JSON.stringify(prescription)}. Return valid JSON only with keys "patientSummary", "medicationSchedule", and "followUpSteps".`;
 
   const geminiRes = await callGemini(promptText);
   if (geminiRes) return geminiRes;
@@ -163,7 +163,7 @@ async function generatePostVisitSummary(clinicalNotes, prescription) {
 
 async function refineDoctorMessage(draftText, symptoms, chiefComplaint) {
   const promptText = `You are an expert medical physician conducting a patient consultation.
-Refine the following rough doctor notes/draft into an empathetic, highly professional, clear, and clinically precise response to send to the patient.
+Refine the following rough doctor notes/draft into an empathetic, highly professional, clear, and clinically precise response in clean Indian English.
 
 STRICT INSTRUCTIONS:
 1. Stick strictly to the patient's reported symptoms ("${symptoms || chiefComplaint || 'general health inquiry'}") and diagnosis/treatment guidance.
@@ -181,8 +181,79 @@ Doctor's rough draft: ${draftText}`;
   return draftText;
 }
 
+async function checkDrugSafety(prescriptionList, symptoms, chiefComplaint) {
+  if (!Array.isArray(prescriptionList) || prescriptionList.length === 0) {
+    return {
+      safetyStatus: 'SAFE',
+      hasInteractions: false,
+      warnings: [],
+      dosageAdvice: 'No medications specified.'
+    };
+  }
+
+  const promptText = `Analyze the following prescribed medication list for drug-drug interactions, contraindications, or dosage anomalies in clean Indian English clinical context.
+Patient Symptoms/Complaint: "${symptoms || chiefComplaint || 'General Visit'}"
+Prescribed Medications: ${JSON.stringify(prescriptionList)}
+
+STRICT INSTRUCTIONS:
+Return valid JSON only with keys:
+"safetyStatus": ("SAFE" | "WARNING" | "CRITICAL"),
+"hasInteractions": boolean,
+"warnings": array of objects with keys { "severity": ("CRITICAL" | "MODERATE" | "INFO"), "drugPair": string, "message": string, "recommendation": string },
+"dosageAdvice": string.`;
+
+  let res = await callGemini(promptText);
+  if (!res) {
+    res = await callGroq(promptText);
+  }
+
+  if (res && res.data) {
+    return res.data;
+  }
+
+  const medNames = prescriptionList.map(p => (p.drug || '').toLowerCase()).join(' ');
+  const warnings = [];
+
+  if (medNames.includes('warfarin') && (medNames.includes('aspirin') || medNames.includes('ibuprofen') || medNames.includes('nsaid'))) {
+    warnings.push({
+      severity: 'CRITICAL',
+      drugPair: 'Warfarin & NSAID / Aspirin',
+      message: 'High risk of gastrointestinal and systemic hemorrhage due to concomitant anticoagulant and antiplatelet activity.',
+      recommendation: 'Consider replacing Aspirin/NSAID with Paracetamol for analgesia.'
+    });
+  }
+
+  if ((medNames.includes('sildenafil') || medNames.includes('tadalafil')) && (medNames.includes('nitroglycerin') || medNames.includes('nitrate'))) {
+    warnings.push({
+      severity: 'CRITICAL',
+      drugPair: 'PDE5 Inhibitor & Nitrates',
+      message: 'Potentially fatal precipitous drop in blood pressure.',
+      recommendation: 'Avoid co-administering nitrates with PDE5 inhibitors.'
+    });
+  }
+
+  if (medNames.includes('fluoxetine') && medNames.includes('tramadol')) {
+    warnings.push({
+      severity: 'MODERATE',
+      drugPair: 'Fluoxetine & Tramadol',
+      message: 'Increased risk of serotonin syndrome and lowered seizure threshold.',
+      recommendation: 'Monitor patient closely for hyperreflexia, tremor, and agitation.'
+    });
+  }
+
+  const safetyStatus = warnings.some(w => w.severity === 'CRITICAL') ? 'CRITICAL' : warnings.length > 0 ? 'WARNING' : 'SAFE';
+
+  return {
+    safetyStatus,
+    hasInteractions: warnings.length > 0,
+    warnings,
+    dosageAdvice: warnings.length > 0 ? 'Potential interactions detected. Please review recommendations.' : 'Prescription verified with basic clinical safety rules.'
+  };
+}
+
 module.exports = {
   generatePreVisitSummary,
   generatePostVisitSummary,
-  refineDoctorMessage
+  refineDoctorMessage,
+  checkDrugSafety
 };

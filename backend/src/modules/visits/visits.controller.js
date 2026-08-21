@@ -20,7 +20,21 @@ async function handleGetVisitSummary(req, res, next) {
   }
 }
 
+async function handleCheckDrugSafety(req, res, next) {
+  try {
+    const { appointmentId, prescription } = req.body;
+    if (!appointmentId || !prescription) {
+      return res.status(400).json({ error: 'appointmentId and prescription are required' });
+    }
+    const analysis = await visitsService.checkPrescriptionSafety(req.user.userId, appointmentId, prescription);
+    res.json(analysis);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   handleSubmitVisitNotes,
-  handleGetVisitSummary
+  handleGetVisitSummary,
+  handleCheckDrugSafety
 };

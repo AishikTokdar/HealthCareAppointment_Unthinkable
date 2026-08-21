@@ -10,6 +10,7 @@ const router = express.Router();
 router.use(authenticate);
 
 router.post('/', guard('DOCTOR'), validate(submitVisitNotesSchema), visitsController.handleSubmitVisitNotes);
+router.post('/check-safety', guard('DOCTOR'), visitsController.handleCheckDrugSafety);
 router.get('/:appointmentId', visitsController.handleGetVisitSummary);
 
 module.exports = router;

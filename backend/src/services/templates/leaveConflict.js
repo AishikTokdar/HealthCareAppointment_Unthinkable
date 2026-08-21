@@ -55,7 +55,7 @@ function leaveConflictTemplate(payload) {
           ` : '<p style="color: #8b9db5; font-size: 14px;">No existing patient bookings were affected by this leave day.</p>'}
 
           <div style="margin-top: 28px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 13px; color: #8b9db5;">
-            ✅ Individual cancellation notices have been dispatched to all affected patients.
+            Individual cancellation notices have been dispatched to all affected patients.
           </div>
         </div>
       `

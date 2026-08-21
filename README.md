@@ -1,6 +1,6 @@
 # Healthcare Appointment & Follow-up Manager
 
-A comprehensive full-stack healthcare appointment and follow-up management platform built with separate portals for Patients, Doctors, and Administrators. It allows patients to book slots and submit symptoms, provides doctors with pre-visit AI symptom briefings, generates patient-friendly post-visit summaries, tracks medication prescriptions with automated reminders, and synchronizes with Google Calendar and email notifications.
+A comprehensive full-stack healthcare appointment and follow-up management platform built with separate portals for Patients, Doctors, and Administrators. It allows patients to book slots and submit symptoms, provides doctors with pre-visit AI symptom briefings, facilitates doctor-initiated live chat consultations with online presence indicators, evaluates prescription safety with real-time AI drug interaction warnings, compiles 1-Click PDF clinical prescriptions, visualizes medical history timelines with Recharts analytics, and manages doctor leave approvals with automated conflict resolution.
 
 ---
 
@@ -19,6 +19,9 @@ flowchart TB
         APPT["Appointment & Concurrency Controller"]
         SYMP["Symptom Triage Module"]
         VISIT["Visit & Prescription Module"]
+        CHAT["Live Consultation Chat Engine"]
+        SAFETY["AI Drug Interaction & Safety Engine"]
+        LEAVE["Doctor Leave Request & Approval Module"]
         ADMIN["Admin Management Module"]
         CAL_MOD["Google Calendar Integration"]
         JOBS["Background Cron Job Runner"]
@@ -26,6 +29,10 @@ flowchart TB
 
     subgraph DB ["Database Layer"]
         PG[("PostgreSQL Database (Neon)")]
+    end
+
+    subgraph PDF ["PDF Document Compiler"]
+        HTML2PDF["html2pdf.js Engine"]
     end
 
     subgraph External ["External Services"]
@@ -42,19 +49,32 @@ flowchart TB
     AUTH --> APPT
     AUTH --> SYMP
     AUTH --> VISIT
+    AUTH --> CHAT
+    AUTH --> SAFETY
+    AUTH --> LEAVE
     AUTH --> ADMIN
     AUTH --> CAL_MOD
 
     APPT -->|Pessimistic Lock & Transactions| PG
     SYMP -->|Read / Write| PG
     VISIT -->|Read / Write| PG
-    ADMIN -->|Read / Write| PG
+    CHAT -->|Store / Poll Messages & Heartbeat| PG
+    SAFETY -->|Clinical Rules & LLM Analysis| PG
+    LEAVE -->|Leave Requests & Conflict Management| PG
+    ADMIN -->|Read / Write Audit Logs| PG
 
     SYMP -->|Generate Triage Summary| GEMINI
     SYMP -.->|Fallback Triage| GROQ
 
     VISIT -->|Generate Patient Summary| GEMINI
     VISIT -.->|Fallback Summary| GROQ
+
+    SAFETY -->|Evaluate Drug Interactions| GEMINI
+    SAFETY -.->|Fallback Safety Check| GROQ
+
+    PP -->|Compile 1-Click Prescription PDF| HTML2PDF
+    DP -->|Compile 1-Click Clinical Summary PDF| HTML2PDF
+    AP -->|Compile 1-Click Audit Record PDF| HTML2PDF
 
     JOBS -->|Process Outbox Notifications| RESEND
     JOBS -->|Process Medication Reminders| PG
@@ -68,26 +88,28 @@ flowchart TB
 ## 2. Architecture Component Breakdown
 
 ### A. Client Applications (Frontend)
-- **Patient Portal**: Enables patient registration, doctor lookup by specialisation, real-time slot selection with 2-minute hold reservation, pre-visit symptom entry, appointment detail timeline, and post-visit summary viewing.
-- **Doctor Portal**: Presents a chronological list of daily appointments, AI-generated pre-visit triage briefings (urgency badge, chief complaint, suggested questions), clinical note recording interface, and dynamic prescription builder.
-- **Admin Portal**: Manages doctor self-registration approval queue, creates and updates doctor profiles, schedules doctor leave days with automatic conflict resolution, monitors system analytics, and audits notification outbox delivery.
+- **Patient Portal**: Enables patient registration, doctor lookup by specialisation, real-time slot selection with 2-minute hold reservation, pre-visit symptom entry, live consultation chat room with online/offline presence indicators, interactive Recharts medical history timeline, and 1-Click PDF prescription compilation (`Prescription_{DoctorName}_{Date}.pdf`).
+- **Doctor Portal**: Presents a chronological list of daily appointments, AI-generated pre-visit triage briefings (urgency badge, chief complaint, diagnostic questions), doctor-initiated live chat room with AI doctor text refiner, real-time AI drug interaction safety verification, leave request submission modal, and 1-Click clinical summary PDF export (`ClinicalSummary_{PatientName}_{Date}.pdf`).
+- **Admin Portal**: Manages doctor self-registration approval queue, creates and updates doctor profiles, reviews doctor leave requests with 1-click approval/rejection and automated appointment cancellation email dispatches, monitors medical visit history logs, and audits notification delivery.
 
 ### B. Backend API Server (Express)
 - **Auth Module & Middleware**: Manages JWT signing, password hashing using bcrypt (12 rounds), rate-limiting, Joi input validation, and enforces role-based access control (`PATIENT`, `DOCTOR`, `ADMIN`). Validates doctor approval status via `requireApproved` middleware.
 - **Appointment & Concurrency Controller**: Implements pessimistic transaction locking (`SELECT ... FOR UPDATE`), enforces 2-minute slot holds (`PENDING` with `holdExpiresAt`), max 3 active holds limit, 30-day advance booking cap, status checks, and manages reschedule/cancellation workflows.
-- **Symptom Triage Module**: Receives raw patient symptom descriptions and triggers asynchronous LLM processing to produce clinical triage insights. Enforces strict ownership checks.
-- **Visit & Prescription Module**: Stores doctor clinical notes, processes prescription items, triggers LLM post-visit summary generation, and populates medication reminder schedules. Enforces strict ownership checks.
-- **Admin Management Module**: Handles doctor onboarding, leave day entry, automated booking cancellations for conflicting leave dates, and statistics aggregation.
+- **Symptom Triage Module**: Receives raw patient symptom descriptions and triggers asynchronous LLM processing to produce clinical triage insights in clean Indian English.
+- **Live Consultation Chat & Presence Engine**: Manages doctor-initiated chat states (`NOT_STARTED` -> `ACTIVE` -> `CLOSED`), logs chat messages, and processes heartbeat timestamps to determine online/offline presence status within 15 seconds.
+- **AI Drug Interaction & Safety Engine**: Evaluates multi-drug prescriptions against symptoms and known contraindication rules (e.g. Warfarin + Aspirin, Sildenafil + Nitroglycerin) using LLM and deterministic clinical fallbacks.
+- **Doctor Leave Request & Approval Module**: Enables doctors to request leave days, allows admins to approve or decline requests, automatically cancels conflicting appointments, and dispatches detailed audit emails to admin and doctor.
+- **Visit & Prescription Module**: Stores doctor clinical notes, processes prescription items, triggers LLM post-visit summary generation, and populates medication reminder schedules.
 - **Google Calendar Integration Module**: Manages OAuth 2.0 token storage, handles authorization code exchanges, and dispatches event creation, update, and deletion requests.
 - **Background Cron Job Runner**: Operates isolated scheduled jobs for retrying queued notifications, clearing expired slot holds, sending 24h appointment reminders, and dispatching hourly medication reminders.
 
 ### C. Database Layer (PostgreSQL)
-- **PostgreSQL**: Stores relational models for Users, Doctor Profiles, Appointments, Leave Days, Symptom Forms, Visit Notes, Medication Reminders, and Notifications. Enforces composite unique constraints `@@unique([doctorId, startsAt])` and `@@unique([doctorId, date])`.
+- **PostgreSQL**: Stores relational models for Users, Doctor Profiles, Appointments, Leave Days, Leave Requests, Symptom Forms, Visit Notes, Chat Messages, Medication Reminders, and Notifications. Enforces composite unique constraints `@@unique([doctorId, startsAt])` and `@@unique([doctorId, date])`.
 
 ### D. External Services
-- **Google Gemini 1.5 Flash API**: Primary LLM engine used for rapid pre-visit symptom analysis and post-visit clinical note translation.
+- **Google Gemini 1.5 Flash API**: Primary LLM engine used for rapid pre-visit symptom analysis, post-visit clinical note translation, doctor message refinement, and AI drug interaction verification in clean Indian English.
 - **Groq Llama-3.1-70B API**: Secondary LLM engine providing automatic failover if Gemini rate limits or quotas are exceeded.
-- **Resend Email API**: Transactional email dispatch service delivering booking confirmations, cancellation notices, leave conflict alerts, doctor approval updates, and medication reminders.
+- **Resend Email API**: Transactional email dispatch service delivering booking confirmations, cancellation notices, detailed leave conflict alerts, leave approval confirmations, and medication reminders.
 - **Google Calendar API**: External calendar service syncing scheduled visits directly to patient and doctor personal Google Calendars.
 
 ---
@@ -121,8 +143,6 @@ VITE_API_BASE_URL="http://localhost:5000"
 
 ## 4. Local Deployment & Setup Instructions
 
-Follow these step-by-step instructions to run the application locally on your machine.
-
 ### Prerequisites
 - **Node.js**: v18.0.0 or higher (`node -v`)
 - **npm**: v9.0.0 or higher (`npm -v`)
@@ -154,10 +174,10 @@ cd HealthCareAppointment
    cp .env.example .env
    ```
 
-4. Open `.env` in your code editor and populate the key configuration variables:
-   - `DATABASE_URL`: Your PostgreSQL connection string (e.g., `postgresql://postgres:postgres@localhost:5432/healthcare_db?schema=public` or a Neon connection string).
-   - `JWT_SECRET`: Set a secure secret key (e.g., `super_secret_jwt_key_123456789`).
-   - *(Optional for basic local testing)* `GEMINI_API_KEY`, `GROQ_API_KEY`, `RESEND_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`. If omitted, fallback summaries and simulated emails will be used automatically.
+4. Open `.env` in your code editor and populate key variables:
+   - `DATABASE_URL`: Your PostgreSQL connection string.
+   - `JWT_SECRET`: Set a secure secret key.
+   - *(Optional for basic local testing)* `GEMINI_API_KEY`, `GROQ_API_KEY`, `RESEND_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
 
 5. Run Prisma Database Migrations:
    ```bash
@@ -209,92 +229,156 @@ cd HealthCareAppointment
 
 ---
 
-### Step 4: Verification & Testing Local Workflows
-1. Open your browser and navigate to `http://localhost:5173`.
-2. **Test Admin Portal**:
-   - Log in with `admin@clinic.com` / `Admin@123`.
-   - Create or approve doctor profiles from the Admin Dashboard.
-3. **Test Patient Booking**:
-   - Register a new Patient account (`patient@test.com` / `Password123`).
-   - Browse doctors, select an available slot (holds for 2 minutes), submit pre-visit symptoms, and confirm booking.
-4. **Test Doctor Workflow**:
-   - Register a new Doctor account or log in with an approved doctor.
-   - Access appointments, view AI pre-visit triage briefings, and submit visit notes with prescriptions.
+## 5. Detailed Production Deployment Instructions
+
+### Step 1: Acquire External Service API Keys & OAuth Credentials
+
+#### A. Google Gemini 1.5 Flash API Key
+1. Visit [Google AI Studio](https://aistudio.google.com).
+2. Sign in with your Google account.
+3. Click **Get API Key** in the top navigation bar, then click **Create API Key in new project**.
+4. Copy the generated string into `GEMINI_API_KEY`.
+
+#### B. Groq Fallback LLM API Key
+1. Visit [Groq Console](https://console.groq.com).
+2. Sign up or log in.
+3. Navigate to **API Keys** in the left sidebar.
+4. Click **Create API Key**, name it `Healthcare-Fallback`, and copy the string into `GROQ_API_KEY`.
+
+#### C. Resend Email API Key
+1. Register at [Resend](https://resend.com).
+2. Navigate to **API Keys** -> **Create API Key**.
+3. Set Permission to **Full Access** and copy the key into `RESEND_API_KEY`. Set `EMAIL_FROM=onboarding@resend.dev` (or your verified domain).
+
+#### D. Google Calendar API OAuth 2.0 Credentials
+1. Visit [Google Cloud Console](https://console.cloud.google.com).
+2. Click **Select a Project** -> **New Project** (`Healthcare-App`).
+3. Navigate to **APIs & Services** -> **Library**. Search for **Google Calendar API** and click **Enable**.
+4. Navigate to **APIs & Services** -> **OAuth Consent Screen**:
+   - User Type: **External**
+   - App Name: `Healthcare Appointment Manager`
+   - User Support Email & Developer Info: Your email address
+   - Save and Continue through Scopes (`.../auth/calendar.events`).
+5. Navigate to **APIs & Services** -> **Credentials** -> **Create Credentials** -> **OAuth Client ID**:
+   - Application Type: **Web Application**
+   - **Authorized JavaScript Origins**:
+     - `http://localhost:5173` (Development)
+     - `https://healthcare-appointment-frontend.vercel.app` (Production Vercel URL)
+     - `https://healthcare-appointment-frontend.pages.dev` (Production Cloudflare Pages URL)
+   - **Authorized Redirect URIs**:
+     - `http://localhost:5000/api/v1/calendar/callback` (Development)
+     - `https://healthcare-appointment-backend.onrender.com/api/v1/calendar/callback` (Production Render URL)
+6. Click **Create** and copy **Client ID** (`GOOGLE_CLIENT_ID`) and **Client Secret** (`GOOGLE_CLIENT_SECRET`).
 
 ---
 
-## 5. Detailed Step-by-Step Production Deployment Instructions
+### Step 2: Database Setup (Neon PostgreSQL)
+1. Sign up for a free account at [Neon Database Console](https://console.neon.tech).
+2. Click **Create Project**, name it `healthcare-appointment-db`, and select PostgreSQL version 16.
+3. Locate **Connection Details** -> **Prisma / Direct Connection** mode.
+4. Copy the connection URL:
+   `postgresql://username:password@ep-cool-name-123456.us-east-2.aws.neon.tech/healthcare-db?sslmode=require`
+5. Keep this string ready for your backend `DATABASE_URL`.
 
-### Step 1: Deploy Database (Neon PostgreSQL)
-1. Sign up for a free account at [Neon](https://neon.tech).
-2. Click **Create Project**, name it `healthcare-db`, and select PostgreSQL version 16.
-3. Once created, navigate to the **Dashboard** and locate the **Connection Details**.
-4. Copy the full connection string (e.g., `postgresql://alex:password@ep-cool-db.us-east-2.aws.neon.tech/neondb?sslmode=require`).
-5. Save this URL to use as your `DATABASE_URL` in backend deployment.
+---
 
-### Step 2: Acquire External Service Credentials
-1. **Google Gemini API Key**:
-   - Visit [Google AI Studio](https://aistudio.google.com).
-   - Click **Get API Key** -> **Create API Key**.
-   - Copy key into `GEMINI_API_KEY`.
+### Step 3: Backend Deployment Options
 
-2. **Groq Fallback API Key**:
-   - Visit [Groq Console](https://console.groq.com).
-   - Navigate to **API Keys** -> **Create API Key**.
-   - Copy key into `GROQ_API_KEY`.
-
-3. **Resend Email API Key**:
-   - Register at [Resend](https://resend.com).
-   - Navigate to **API Keys** -> **Create API Key**.
-   - Copy key into `RESEND_API_KEY`. Set `EMAIL_FROM=onboarding@resend.dev` (or your verified domain).
-
-4. **Google OAuth 2.0 Credentials**:
-   - Visit [Google Cloud Console](https://console.cloud.google.com).
-   - Create project `HealthcareApp`.
-   - Under **APIs & Services** -> **Library**, search for and enable **Google Calendar API**.
-   - Go to **Credentials** -> **Create Credentials** -> **OAuth 2.0 Client ID**.
-   - Set Application Type to **Web Application**.
-   - Add Authorized Redirect URIs:
-     - Development: `http://localhost:5000/api/v1/calendar/callback`
-     - Production: `https://your-backend-render-app.onrender.com/api/v1/calendar/callback`
-   - Copy Client ID and Client Secret into `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
-
-### Step 3: Deploy Backend Server (Render)
-1. Register/Log in to [Render](https://render.com).
-2. Click **New +** -> **Web Service**.
-3. Connect your GitHub repository and set the Root Directory to `backend`.
-4. Configure service settings:
+#### Option A: Deploying Backend on Render (Recommended)
+1. Sign up at [Render Console](https://dashboard.render.com).
+2. Click **New +** -> **Web Service** -> Connect your GitHub repository.
+3. Configure settings:
    - **Name**: `healthcare-appointment-backend`
+   - **Root Directory**: `backend`
    - **Environment**: `Node`
-   - **Build Command**: `npm install && npx prisma generate && npx prisma migrate deploy`
-   - **Start Command**: `npm start`
-5. Scroll to **Environment Variables** and add all values from `backend/.env.example`:
-   - `DATABASE_URL` (from Neon)
-   - `JWT_SECRET` (random 32+ character string)
-   - `GEMINI_API_KEY`
-   - `GROQ_API_KEY`
-   - `RESEND_API_KEY`
-   - `EMAIL_FROM`
-   - `GOOGLE_CLIENT_ID`
-   - `GOOGLE_CLIENT_SECRET`
-   - `GOOGLE_REDIRECT_URI` (`https://your-backend-render-app.onrender.com/api/v1/calendar/callback`)
-   - `FRONTEND_URL` (`https://your-frontend-app.vercel.app`)
-   - `ADMIN_EMAIL` (`admin@clinic.com`)
-   - `ADMIN_PASSWORD` (`AdminPassword123!`)
-   - `NODE_ENV` (`production`)
-6. Click **Create Web Service**. Wait for the build and deployment to finish.
-7. Run initial admin seed by opening the Render shell tab and running: `node scripts/seed-admin.js`.
+   - **Build Command**:
+     ```bash
+     npm install && npx prisma generate && npx prisma migrate deploy
+     ```
+   - **Start Command**:
+     ```bash
+     npm start
+     ```
+4. Set Environment Variables:
+   - `DATABASE_URL` = Your Neon connection string
+   - `JWT_SECRET` = Random 32+ char string
+   - `GEMINI_API_KEY` = Google AI Studio Key
+   - `GROQ_API_KEY` = Groq Console Key
+   - `RESEND_API_KEY` = Resend Email API Key
+   - `EMAIL_FROM` = `onboarding@resend.dev`
+   - `GOOGLE_CLIENT_ID` = GCP OAuth Client ID
+   - `GOOGLE_CLIENT_SECRET` = GCP OAuth Client Secret
+   - `GOOGLE_REDIRECT_URI` = `https://healthcare-appointment-backend.onrender.com/api/v1/calendar/callback`
+   - `FRONTEND_URL` = Your live frontend URL (Vercel, Cloudflare Pages, or GitHub Pages)
+   - `ADMIN_EMAIL` = `admin@clinic.com`
+   - `ADMIN_PASSWORD` = `AdminPassword123!`
+   - `NODE_ENV` = `production`
+5. Click **Create Web Service**. Once live, navigate to Render **Shell** and execute:
+   ```bash
+   node scripts/seed-admin.js
+   ```
 
-### Step 4: Deploy Frontend Application (Vercel)
-1. Log in to [Vercel](https://vercel.com).
-2. Click **Add New...** -> **Project**.
-3. Import your GitHub repository.
-4. Select `frontend` as the **Root Directory**.
-5. Framework Preset: **Vite**.
-6. Open **Environment Variables** and set:
-   - `VITE_API_BASE_URL`: `https://your-backend-render-app.onrender.com`
-7. Click **Deploy**.
-8. Once deployed, copy your production Vercel URL and ensure it matches the `FRONTEND_URL` variable in your Render backend settings.
+#### Option B: Deploying Backend on Railway
+1. Register at [Railway Console](https://railway.app).
+2. Click **New Project** -> **Deploy from GitHub repo** -> Select repository.
+3. Set **Root Directory** to `backend`.
+4. Add Environment Variables under **Variables** tab matching the backend table.
+5. Set Build Command: `npm install && npx prisma generate && npx prisma migrate deploy`.
+6. Set Start Command: `npm start`.
+
+---
+
+### Step 4: Frontend Deployment Options
+
+#### Option A: Deploying Frontend on Vercel (Recommended)
+1. Register/Log in at [Vercel Console](https://vercel.com).
+2. Click **Add New...** -> **Project** -> Import your GitHub repository.
+3. Configure deployment options:
+   - **Framework Preset**: **Vite**
+   - **Root Directory**: Select `frontend`
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+4. Set Environment Variable:
+   - `VITE_API_BASE_URL` = `https://healthcare-appointment-backend.onrender.com` (Your backend URL)
+5. Click **Deploy**. Vercel will automatically process SPA routing rewrites via `frontend/vercel.json`.
+
+#### Option B: Deploying Frontend on Cloudflare Pages (`pages.dev`)
+1. Log in to [Cloudflare Dashboard](https://dash.cloudflare.com).
+2. Navigate to **Workers & Pages** -> **Create application** -> **Pages** -> **Connect to Git**.
+3. Select your GitHub repository and branch (`main`).
+4. Configure build settings:
+   - **Project Name**: `healthcare-appointment-frontend`
+   - **Framework Preset**: **Vite**
+   - **Root Directory**: `frontend`
+   - **Build Command**: `npm run build`
+   - **Build Output Directory**: `dist`
+5. Add Environment Variable:
+   - Variable name: `VITE_API_BASE_URL`
+   - Value: `https://healthcare-appointment-backend.onrender.com`
+6. Click **Save and Deploy**. Cloudflare Pages automatically handles client-side React Router navigation via `frontend/public/_redirects` (`/* /index.html 200`). Your live site will be served on `https://healthcare-appointment-frontend.pages.dev`.
+
+#### Option C: Deploying Frontend on GitHub Pages
+1. Navigate to the `frontend` directory:
+   ```bash
+   cd frontend
+   ```
+2. Install `gh-pages` helper package:
+   ```bash
+   npm install --save-dev gh-pages
+   ```
+3. Add deploy scripts to `frontend/package.json`:
+   ```json
+   "scripts": {
+     "predeploy": "npm run build && cp dist/index.html dist/404.html",
+     "deploy": "gh-pages -d dist"
+   }
+   ```
+4. Set `VITE_API_BASE_URL` in your environment or build script.
+5. Run deployment command:
+   ```bash
+   npm run deploy
+   ```
+6. In your GitHub Repository Settings -> **Pages**, set source branch to `gh-pages`.
 
 ---
 
@@ -314,6 +398,18 @@ enum AppointmentStatus {
   COMPLETED
 }
 
+enum ChatStatus {
+  NOT_STARTED
+  ACTIVE
+  CLOSED
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum LLMStatus {
   PENDING
   SUCCESS
@@ -325,6 +421,8 @@ enum NotificationType {
   APPOINTMENT_REMINDER
   CANCELLATION
   LEAVE_CONFLICT
+  LEAVE_REQUESTED
+  LEAVE_APPROVED
   MED_REMINDER
   DOCTOR_APPROVED
   DOCTOR_REJECTED
@@ -355,6 +453,7 @@ model User {
   doctorProfile   DoctorProfile?
   notifications   Notification[]
   reminders       MedicationReminder[]
+  chatMessages    ChatMessage[]
 }
 
 model DoctorProfile {
@@ -370,6 +469,7 @@ model DoctorProfile {
   isActive       Boolean              @default(true)
   appointments   Appointment[]
   leaveDays      LeaveDay[]
+  leaveRequests  LeaveRequest[]
 }
 
 model LeaveDay {
@@ -380,6 +480,17 @@ model LeaveDay {
   reason   String?
 
   @@unique([doctorId, date])
+}
+
+model LeaveRequest {
+  id        String             @id @default(uuid())
+  doctorId  String
+  doctor    DoctorProfile      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  date      DateTime           @db.Date
+  reason    String?
+  status    LeaveRequestStatus @default(PENDING)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
 }
 
 model Appointment {
@@ -394,13 +505,27 @@ model Appointment {
   holdExpiresAt     DateTime?
   gcalEventId       String?
   gcalDoctorEventId String?
+  chatStatus        ChatStatus        @default(NOT_STARTED)
+  patientLastSeen   DateTime?
+  doctorLastSeen    DateTime?
   createdAt         DateTime          @default(now())
   symptomForm       SymptomForm?
   visitNote         VisitNote?
+  chatMessages      ChatMessage[]
 
   @@unique([doctorId, startsAt])
   @@index([patientId])
   @@index([doctorId, startsAt])
+}
+
+model ChatMessage {
+  id            String      @id @default(uuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  senderId      String
+  sender        User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  message       String
+  createdAt     DateTime    @default(now())
 }
 
 model SymptomForm {
@@ -464,10 +589,20 @@ model Notification {
 
 ### Pre-Visit Symptoms Prompt
 ```text
-Analyse these symptoms and return: urgency level (Low / Medium / High), chief complaint, and three suggested questions for the doctor. Return valid JSON only with keys "urgency", "chiefComplaint", and "suggestedQuestions". Symptoms: <symptoms>
+Perform a clinical triage analysis on the following patient symptoms in clean Indian English clinical style. Classify urgency strictly into one of three categories: High, Medium, or Low. Return valid JSON only with keys "urgency", "chiefComplaint", and "suggestedQuestions". Symptoms: <symptoms>
 ```
 
 ### Post-Visit Clinical Notes Prompt
 ```text
-Convert these clinical notes into a patient-friendly summary with medication schedule and follow-up steps: <notes>. Prescription info: <prescriptionJSON>. Return valid JSON only with keys "patientSummary", "medicationSchedule", and "followUpSteps".
+Convert these clinical notes into a patient-friendly summary in clean Indian English with medication schedule and follow-up steps: <notes>. Prescription info: <prescriptionJSON>. Return valid JSON only with keys "patientSummary", "medicationSchedule", and "followUpSteps".
+```
+
+### Doctor AI Note Refiner Prompt
+```text
+Refine the rough doctor notes/draft into an empathetic, highly professional, clear, and clinically precise response in clean Indian English. Stick strictly to the patient's reported symptoms and diagnosis/treatment guidance. Doctor's rough draft: <draftText>
+```
+
+### AI Drug Interaction Safety Analysis Prompt
+```text
+Analyze the prescribed medication list for drug-drug interactions, contraindications, or dosage anomalies in clean Indian English clinical context. Return valid JSON only with keys "safetyStatus" (SAFE | WARNING | CRITICAL), "hasInteractions", "warnings", and "dosageAdvice". Prescribed Medications: <prescriptionJSON>
 ```

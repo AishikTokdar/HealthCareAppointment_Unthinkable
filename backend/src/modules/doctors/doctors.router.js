@@ -12,6 +12,7 @@ router.get('/', doctorsController.handleSearchDoctors);
 router.get('/me/appointments', authenticate, guard('DOCTOR'), requireApproved, doctorsController.handleGetDoctorAppointments);
 router.post('/me/leave-requests', authenticate, guard('DOCTOR'), requireApproved, doctorsController.handleRequestLeave);
 router.get('/me/leave-requests', authenticate, guard('DOCTOR'), requireApproved, doctorsController.handleGetMyLeaveRequests);
+router.get('/patient-history/:patientId', authenticate, guard('DOCTOR'), requireApproved, doctorsController.handleGetDoctorPatientHistory);
 router.get('/:id', doctorsController.handleGetDoctorPublicProfile);
 router.get('/:id/slots', validateQuery(slotsQuerySchema), doctorsController.handleGetDoctorSlots);
 

@@ -11,10 +11,12 @@ import DoctorSearch from './pages/patient/DoctorSearch';
 import BookAppointment from './pages/patient/BookAppointment';
 import PatientAppointments from './pages/patient/Appointments';
 import PatientAppointmentDetail from './pages/patient/AppointmentDetail';
+import PatientMedicalHistory from './pages/patient/MedicalHistory';
 
 import DoctorDashboard from './pages/doctor/Dashboard';
 import DoctorAppointmentDetail from './pages/doctor/AppointmentDetail';
 import SubmitVisitNote from './pages/doctor/SubmitVisitNote';
+import DoctorPatientHistory from './pages/doctor/PatientHistory';
 
 import AdminDashboard from './pages/admin/Dashboard';
 import PendingDoctors from './pages/admin/PendingDoctors';
@@ -45,10 +47,12 @@ export default function App() {
       <Route path="/patient/book/:doctorId" element={<PrivateRoute allowedRoles={['PATIENT']}><BookAppointment /></PrivateRoute>} />
       <Route path="/patient/appointments" element={<PrivateRoute allowedRoles={['PATIENT']}><PatientAppointments /></PrivateRoute>} />
       <Route path="/patient/appointments/:id" element={<PrivateRoute allowedRoles={['PATIENT']}><PatientAppointmentDetail /></PrivateRoute>} />
+      <Route path="/patient/history" element={<PrivateRoute allowedRoles={['PATIENT']}><PatientMedicalHistory /></PrivateRoute>} />
 
       <Route path="/doctor/dashboard" element={<PrivateRoute allowedRoles={['DOCTOR']}><DoctorDashboard /></PrivateRoute>} />
       <Route path="/doctor/appointments/:id" element={<PrivateRoute allowedRoles={['DOCTOR']}><DoctorAppointmentDetail /></PrivateRoute>} />
       <Route path="/doctor/visit/:id" element={<PrivateRoute allowedRoles={['DOCTOR']}><SubmitVisitNote /></PrivateRoute>} />
+      <Route path="/doctor/patient-history/:patientId" element={<PrivateRoute allowedRoles={['DOCTOR']}><DoctorPatientHistory /></PrivateRoute>} />
 
       <Route path="/admin/dashboard" element={<PrivateRoute allowedRoles={['ADMIN']}><AdminDashboard /></PrivateRoute>} />
       <Route path="/admin/doctors/pending" element={<PrivateRoute allowedRoles={['ADMIN']}><PendingDoctors /></PrivateRoute>} />

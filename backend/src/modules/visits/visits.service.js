@@ -1,5 +1,5 @@
 const prisma = require('../../config/db');
-const { generatePostVisitSummary } = require('../../services/llm');
+const { generatePostVisitSummary, checkDrugSafety: llmCheckDrugSafety } = require('../../services/llm');
 
 async function submitVisitNotes(doctorUserId, appointmentId, clinicalNotes, prescription) {
   const appt = await prisma.appointment.findUnique({
@@ -115,7 +115,27 @@ async function getVisitSummary(user, appointmentId) {
   return visitNote;
 }
 
+async function checkPrescriptionSafety(doctorUserId, appointmentId, prescription) {
+  const appt = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: { doctor: true, symptomForm: true }
+  });
+
+  if (!appt || appt.doctor.userId !== doctorUserId) {
+    const err = new Error('Appointment not found or unauthorized');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  return llmCheckDrugSafety(
+    prescription,
+    appt.symptomForm?.rawSymptoms,
+    appt.symptomForm?.chiefComplaint
+  );
+}
+
 module.exports = {
   submitVisitNotes,
-  getVisitSummary
+  getVisitSummary,
+  checkPrescriptionSafety
 };

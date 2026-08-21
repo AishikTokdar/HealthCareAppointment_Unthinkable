@@ -6,5 +6,6 @@ export const doctorsApi = {
   getSlots: (id, date) => client.get(`/doctors/${id}/slots`, { params: { date } }),
   getDoctorAppointments: () => client.get('/doctors/me/appointments'),
   requestLeave: (date, reason) => client.post('/doctors/me/leave-requests', { date, reason }),
-  getMyLeaveRequests: () => client.get('/doctors/me/leave-requests')
+  getMyLeaveRequests: () => client.get('/doctors/me/leave-requests'),
+  getPatientHistory: (patientId) => client.get(`/doctors/patient-history/${patientId}`)
 };

@@ -63,11 +63,21 @@ async function handleGetMyLeaveRequests(req, res, next) {
   }
 }
 
+async function handleGetDoctorPatientHistory(req, res, next) {
+  try {
+    const data = await doctorsService.getDoctorPatientHistory(req.user.userId, req.params.patientId);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   handleSearchDoctors,
   handleGetDoctorPublicProfile,
   handleGetDoctorSlots,
   handleGetDoctorAppointments,
   handleRequestLeave,
-  handleGetMyLeaveRequests
+  handleGetMyLeaveRequests,
+  handleGetDoctorPatientHistory
 };

@@ -6,7 +6,7 @@ import Sidebar from '../../components/layout/Sidebar';
 import UrgencyBadge from '../../components/ui/UrgencyBadge';
 import { appointmentsApi } from '../../api/appointments.api';
 import { generatePrescriptionPdf } from '../../utils/generatePrescriptionPdf';
-import { ArrowLeft, User, Clock, AlertCircle, FileEdit, HelpCircle, CheckCircle2, MessageSquare, Send, Sparkles, CheckSquare, Play, XCircle, Circle, Download } from 'lucide-react';
+import { ArrowLeft, User, Clock, AlertCircle, FileEdit, HelpCircle, CheckCircle2, MessageSquare, Send, Sparkles, CheckSquare, Play, XCircle, Circle, Download, History } from 'lucide-react';
 
 export default function DoctorAppointmentDetail() {
   const { id } = useParams();
@@ -159,6 +159,13 @@ export default function DoctorAppointmentDetail() {
             <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Patient: {appointment.patient?.name}</p>
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
+            <Link
+              to={`/doctor/patient-history/${appointment.patientId}`}
+              className="btn-secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: 8, borderColor: 'var(--accent-violet)', color: 'var(--accent-violet)' }}
+            >
+              <History size={16} /> View Patient Medical History
+            </Link>
             {appointment.visitNote && (
               <button
                 onClick={() => generatePrescriptionPdf(appointment, 'DOCTOR')}
@@ -306,7 +313,7 @@ export default function DoctorAppointmentDetail() {
             </div>
           ) : chatStatus === 'CLOSED' ? (
             <div style={{ background: 'var(--bg-surface)', padding: 16, textAlign: 'center', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: 14 }}>
-              🔒 Chat consultation session has been closed.
+              Chat consultation session has been closed.
             </div>
           ) : (
             <div>
@@ -376,7 +383,7 @@ export default function DoctorAppointmentDetail() {
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>💡 AI formats message in precise Indian English medical tone.</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>AI formats message in precise Indian English medical tone.</span>
                   <button type="submit" disabled={sendingMsg} className="btn-primary" style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Send size={16} /> Send to Patient
                   </button>

@@ -232,12 +232,12 @@ export default function PatientAppointmentDetail() {
           {chatStatus === 'NOT_STARTED' ? (
             <div style={{ background: 'var(--bg-surface)', padding: 24, textAlign: 'center', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-light)' }}>
               <p style={{ color: 'var(--text-secondary)', fontSize: 14, margin: 0 }}>
-                ⏳ Doctor is currently reviewing your symptom submission. Live chat consultation will start as soon as the doctor initiates the session.
+                Doctor is currently reviewing your symptom submission. Live chat consultation will start as soon as the doctor initiates the session.
               </p>
             </div>
           ) : chatStatus === 'CLOSED' ? (
             <div style={{ background: 'var(--bg-surface)', padding: 16, textAlign: 'center', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: 14 }}>
-              🔒 Consultation chat session has been closed.
+              Consultation chat session has been closed.
             </div>
           ) : (
             <div>

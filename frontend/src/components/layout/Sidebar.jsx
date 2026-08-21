@@ -10,7 +10,8 @@ import {
   Bell,
   LogOut,
   HeartPulse,
-  Activity
+  Activity,
+  History
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -23,7 +24,8 @@ export default function Sidebar() {
   const patientLinks = [
     { path: '/patient/dashboard', label: 'Dashboard', icon: Activity },
     { path: '/patient/doctors', label: 'Find Doctors', icon: Users },
-    { path: '/patient/appointments', label: 'My Bookings', icon: Calendar }
+    { path: '/patient/appointments', label: 'My Bookings', icon: Calendar },
+    { path: '/patient/history', label: 'Medical History', icon: History }
   ];
 
   const doctorLinks = [

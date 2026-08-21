@@ -221,11 +221,58 @@ async function getMyLeaveRequests(doctorUserId) {
   });
 }
 
+async function getDoctorPatientHistory(doctorUserId, targetPatientId) {
+  const profile = await prisma.doctorProfile.findUnique({
+    where: { userId: doctorUserId }
+  });
+
+  if (!profile) {
+    const err = new Error('Doctor profile not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const existingAppt = await prisma.appointment.findFirst({
+    where: {
+      doctorId: profile.id,
+      patientId: targetPatientId
+    }
+  });
+
+  if (!existingAppt) {
+    const err = new Error('Access denied. You can only view medical history for patients who have scheduled an appointment with you.');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  const patient = await prisma.user.findUnique({
+    where: { id: targetPatientId },
+    select: { id: true, name: true, email: true, phone: true }
+  });
+
+  const appointments = await prisma.appointment.findMany({
+    where: { patientId: targetPatientId },
+    include: {
+      doctor: {
+        include: {
+          user: { select: { id: true, name: true, email: true, phone: true } }
+        }
+      },
+      symptomForm: true,
+      visitNote: true
+    },
+    orderBy: { startsAt: 'desc' }
+  });
+
+  return { patient, appointments };
+}
+
 module.exports = {
   searchDoctors,
   getDoctorPublicProfile,
   getDoctorSlots,
   getDoctorAppointments,
   requestLeave,
-  getMyLeaveRequests
+  getMyLeaveRequests,
+  getDoctorPatientHistory
 };

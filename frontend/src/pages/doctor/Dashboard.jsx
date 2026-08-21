@@ -98,7 +98,7 @@ export default function DoctorDashboard() {
               Your doctor profile registration is currently being reviewed by clinic administration. Access to clinical schedules, patient briefings, and consultations is restricted until approval.
             </p>
             <div style={{ background: 'var(--bg-surface)', padding: '14px 20px', borderRadius: 'var(--radius-md)', fontSize: 13, color: 'var(--accent-amber)', fontWeight: 500 }}>
-              💡 Please contact the clinic administrator to review and approve your account.
+              Please contact the clinic administrator to review and approve your account.
             </div>
           </motion.div>
         </main>
@@ -174,7 +174,7 @@ export default function DoctorDashboard() {
                     background: lr.status === 'APPROVED' ? 'rgba(16, 185, 129, 0.15)' : lr.status === 'REJECTED' ? 'rgba(244, 63, 94, 0.15)' : 'rgba(245, 158, 11, 0.15)',
                     color: lr.status === 'APPROVED' ? 'var(--accent-emerald)' : lr.status === 'REJECTED' ? 'var(--accent-rose)' : 'var(--accent-amber)'
                   }}>
-                    {lr.status === 'PENDING' ? '⏳ Pending Admin Review' : lr.status === 'APPROVED' ? '✅ Approved' : '❌ Declined'}
+                    {lr.status === 'PENDING' ? 'Pending Admin Review' : lr.status === 'APPROVED' ? 'Approved' : 'Declined'}
                   </span>
                 </div>
               ))}
