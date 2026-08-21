@@ -73,10 +73,10 @@ flowchart TB
 - **Admin Portal**: Manages doctor self-registration approval queue, creates and updates doctor profiles, schedules doctor leave days with automatic conflict resolution, monitors system analytics, and audits notification outbox delivery.
 
 ### B. Backend API Server (Express)
-- **Auth Module & Middleware**: Manages JWT signing, password hashing using bcrypt (12 rounds), and enforces role-based access control (`PATIENT`, `DOCTOR`, `ADMIN`). Validates doctor approval status via `requireApproved` middleware.
-- **Appointment & Concurrency Controller**: Implements pessimistic transaction locking (`SELECT ... FOR UPDATE`), enforces 2-minute slot holds (`PENDING` with `holdExpiresAt`), and manages reschedule and cancellation workflows.
-- **Symptom Triage Module**: Receives raw patient symptom descriptions and triggers asynchronous LLM processing to produce clinical triage insights.
-- **Visit & Prescription Module**: Stores doctor clinical notes, processes prescription items, triggers LLM post-visit summary generation, and populates medication reminder schedules.
+- **Auth Module & Middleware**: Manages JWT signing, password hashing using bcrypt (12 rounds), rate-limiting, Joi input validation, and enforces role-based access control (`PATIENT`, `DOCTOR`, `ADMIN`). Validates doctor approval status via `requireApproved` middleware.
+- **Appointment & Concurrency Controller**: Implements pessimistic transaction locking (`SELECT ... FOR UPDATE`), enforces 2-minute slot holds (`PENDING` with `holdExpiresAt`), max 3 active holds limit, 30-day advance booking cap, status checks, and manages reschedule/cancellation workflows.
+- **Symptom Triage Module**: Receives raw patient symptom descriptions and triggers asynchronous LLM processing to produce clinical triage insights. Enforces strict ownership checks.
+- **Visit & Prescription Module**: Stores doctor clinical notes, processes prescription items, triggers LLM post-visit summary generation, and populates medication reminder schedules. Enforces strict ownership checks.
 - **Admin Management Module**: Handles doctor onboarding, leave day entry, automated booking cancellations for conflicting leave dates, and statistics aggregation.
 - **Google Calendar Integration Module**: Manages OAuth 2.0 token storage, handles authorization code exchanges, and dispatches event creation, update, and deletion requests.
 - **Background Cron Job Runner**: Operates isolated scheduled jobs for retrying queued notifications, clearing expired slot holds, sending 24h appointment reminders, and dispatching hourly medication reminders.
@@ -94,11 +94,10 @@ flowchart TB
 
 ## 3. Environment Variables Reference
 
-### Backend (`backend/.env.example`)
+### Backend (`backend/.env`)
 ```env
 DATABASE_URL="postgresql://user:password@localhost:5432/healthcare_db?schema=public"
-JWT_SECRET="your_jwt_secret_key"
-APP_SECRET="your_32_byte_secret_key"
+JWT_SECRET="your_jwt_secret_key_at_least_32_characters_long"
 GEMINI_API_KEY="your_gemini_api_key"
 GROQ_API_KEY="your_groq_api_key"
 RESEND_API_KEY="your_resend_api_key"
@@ -110,44 +109,121 @@ FRONTEND_URL="http://localhost:5173"
 ADMIN_EMAIL="admin@clinic.com"
 ADMIN_PASSWORD="AdminPassword123!"
 PORT=5000
+NODE_ENV=development
 ```
 
-### Frontend (`frontend/.env.example`)
+### Frontend (`frontend/.env`)
 ```env
 VITE_API_BASE_URL="http://localhost:5000"
 ```
 
 ---
 
-## 4. Local Installation & Setup
+## 4. Local Deployment & Setup Instructions
 
-1. **Clone Repository**:
-   ```bash
-   git clone https://github.com/your-username/HealthCareAppointment.git
-   cd HealthCareAppointment
-   ```
+Follow these step-by-step instructions to run the application locally on your machine.
 
-2. **Setup Backend**:
-   ```bash
-   cd backend
-   npm install
-   cp .env.example .env
-   npx prisma migrate dev --name init
-   npm run seed:admin
-   npm run dev
-   ```
-
-3. **Setup Frontend**:
-   ```bash
-   cd ../frontend
-   npm install
-   cp .env.example .env
-   npm run dev
-   ```
+### Prerequisites
+- **Node.js**: v18.0.0 or higher (`node -v`)
+- **npm**: v9.0.0 or higher (`npm -v`)
+- **PostgreSQL**: Local PostgreSQL instance OR a free cloud database instance from [Neon](https://neon.tech).
 
 ---
 
-## 5. Detailed Step-by-Step Deployment Instructions
+### Step-by-Step Local Setup
+
+#### Step 1: Clone Repository
+```bash
+git clone https://github.com/your-username/HealthCareAppointment.git
+cd HealthCareAppointment
+```
+
+#### Step 2: Configure & Launch Backend Server
+1. Navigate to the `backend` directory:
+   ```bash
+   cd backend
+   ```
+
+2. Install backend node packages:
+   ```bash
+   npm install
+   ```
+
+3. Create your `.env` configuration file:
+   ```bash
+   cp .env.example .env
+   ```
+
+4. Open `.env` in your code editor and populate the key configuration variables:
+   - `DATABASE_URL`: Your PostgreSQL connection string (e.g., `postgresql://postgres:postgres@localhost:5432/healthcare_db?schema=public` or a Neon connection string).
+   - `JWT_SECRET`: Set a secure secret key (e.g., `super_secret_jwt_key_123456789`).
+   - *(Optional for basic local testing)* `GEMINI_API_KEY`, `GROQ_API_KEY`, `RESEND_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`. If omitted, fallback summaries and simulated emails will be used automatically.
+
+5. Run Prisma Database Migrations:
+   ```bash
+   npx prisma migrate dev --name init
+   ```
+
+6. Seed Initial System Admin User:
+   ```bash
+   npm run seed:admin
+   ```
+   *Default Admin Credentials:*
+   - **Email**: `admin@clinic.com`
+   - **Password**: `Admin@123`
+
+7. Start Backend Development Server:
+   ```bash
+   npm run dev
+   ```
+   The backend server will launch on `http://localhost:5000`.
+
+---
+
+#### Step 3: Configure & Launch Frontend Web App
+1. Open a new terminal window and navigate to the `frontend` directory:
+   ```bash
+   cd frontend
+   ```
+
+2. Install frontend node packages:
+   ```bash
+   npm install
+   ```
+
+3. Create your `.env` file:
+   ```bash
+   cp .env.example .env
+   ```
+
+4. Verify `.env` contents:
+   ```env
+   VITE_API_BASE_URL="http://localhost:5000"
+   ```
+
+5. Start Frontend Development Server:
+   ```bash
+   npm run dev
+   ```
+   The frontend app will launch on `http://localhost:5173`.
+
+---
+
+### Step 4: Verification & Testing Local Workflows
+1. Open your browser and navigate to `http://localhost:5173`.
+2. **Test Admin Portal**:
+   - Log in with `admin@clinic.com` / `Admin@123`.
+   - Create or approve doctor profiles from the Admin Dashboard.
+3. **Test Patient Booking**:
+   - Register a new Patient account (`patient@test.com` / `Password123`).
+   - Browse doctors, select an available slot (holds for 2 minutes), submit pre-visit symptoms, and confirm booking.
+4. **Test Doctor Workflow**:
+   - Register a new Doctor account or log in with an approved doctor.
+   - Access appointments, view AI pre-visit triage briefings, and submit visit notes with prescriptions.
+
+---
+
+## 5. Detailed Step-by-Step Production Deployment Instructions
 
 ### Step 1: Deploy Database (Neon PostgreSQL)
 1. Sign up for a free account at [Neon](https://neon.tech).
@@ -195,7 +271,6 @@ VITE_API_BASE_URL="http://localhost:5000"
 5. Scroll to **Environment Variables** and add all values from `backend/.env.example`:
    - `DATABASE_URL` (from Neon)
    - `JWT_SECRET` (random 32+ character string)
-   - `APP_SECRET` (random 32+ character string)
    - `GEMINI_API_KEY`
    - `GROQ_API_KEY`
    - `RESEND_API_KEY`
@@ -206,6 +281,7 @@ VITE_API_BASE_URL="http://localhost:5000"
    - `FRONTEND_URL` (`https://your-frontend-app.vercel.app`)
    - `ADMIN_EMAIL` (`admin@clinic.com`)
    - `ADMIN_PASSWORD` (`AdminPassword123!`)
+   - `NODE_ENV` (`production`)
 6. Click **Create Web Service**. Wait for the build and deployment to finish.
 7. Run initial admin seed by opening the Render shell tab and running: `node scripts/seed-admin.js`.
 
