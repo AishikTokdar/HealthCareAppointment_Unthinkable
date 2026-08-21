@@ -13,6 +13,12 @@ async function submitVisitNotes(doctorUserId, appointmentId, clinicalNotes, pres
     throw err;
   }
 
+  if (appt.status !== 'CONFIRMED' && appt.status !== 'COMPLETED') {
+    const err = new Error('Visit notes can only be submitted for confirmed or completed appointments');
+    err.statusCode = 400;
+    throw err;
+  }
+
   const visitNote = await prisma.visitNote.upsert({
     where: { appointmentId },
     create: {
@@ -69,7 +75,30 @@ async function submitVisitNotes(doctorUserId, appointmentId, clinicalNotes, pres
   return visitNote;
 }
 
-async function getVisitSummary(appointmentId) {
+async function getVisitSummary(user, appointmentId) {
+  const appt = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: { doctor: true }
+  });
+
+  if (!appt) {
+    const err = new Error('Appointment not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (user.role === 'PATIENT' && appt.patientId !== user.userId) {
+    const err = new Error('Access denied');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  if (user.role === 'DOCTOR' && appt.doctor.userId !== user.userId) {
+    const err = new Error('Access denied');
+    err.statusCode = 403;
+    throw err;
+  }
+
   const visitNote = await prisma.visitNote.findUnique({
     where: { appointmentId },
     include: {

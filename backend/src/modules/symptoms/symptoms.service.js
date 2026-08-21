@@ -36,7 +36,30 @@ async function submitSymptomForm(appointmentId, rawSymptoms) {
   return symptomForm;
 }
 
-async function getSymptomSummary(appointmentId) {
+async function getSymptomSummary(user, appointmentId) {
+  const appt = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: { doctor: true }
+  });
+
+  if (!appt) {
+    const err = new Error('Appointment not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (user.role === 'PATIENT' && appt.patientId !== user.userId) {
+    const err = new Error('Access denied');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  if (user.role === 'DOCTOR' && appt.doctor.userId !== user.userId) {
+    const err = new Error('Access denied');
+    err.statusCode = 403;
+    throw err;
+  }
+
   const form = await prisma.symptomForm.findUnique({
     where: { appointmentId }
   });

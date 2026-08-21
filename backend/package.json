@@ -18,8 +18,11 @@
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
+    "express-rate-limit": "^7.4.1",
     "googleapis": "^144.0.0",
     "groq-sdk": "^0.8.0",
+    "helmet": "^8.0.0",
+    "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
     "node-cron": "^3.0.3",
     "resend": "^4.0.1"

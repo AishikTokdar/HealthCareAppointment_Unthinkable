@@ -2,17 +2,20 @@ const express = require('express');
 const appointmentsController = require('./appointments.controller');
 const authenticate = require('../../middleware/authenticate');
 const guard = require('../../middleware/guard');
+const { validate } = require('../../middleware/validate');
+const { holdSlotSchema, confirmBookingSchema, rescheduleSchema, cancelSchema } = require('../../middleware/schemas');
+const { bookingLimiter } = require('../../middleware/rateLimiter');
 
 const router = express.Router();
 
 router.use(authenticate);
 
-router.post('/hold', guard('PATIENT'), appointmentsController.handleHoldSlot);
-router.post('/', guard('PATIENT'), appointmentsController.handleConfirmBooking);
+router.post('/hold', guard('PATIENT'), bookingLimiter, validate(holdSlotSchema), appointmentsController.handleHoldSlot);
+router.post('/', guard('PATIENT'), bookingLimiter, validate(confirmBookingSchema), appointmentsController.handleConfirmBooking);
 router.get('/', guard('PATIENT'), appointmentsController.handleGetPatientAppointments);
 router.get('/:id', appointmentsController.handleGetAppointmentDetail);
-router.put('/:id/reschedule', guard('PATIENT'), appointmentsController.handleRescheduleAppointment);
-router.delete('/:id', guard('PATIENT', 'DOCTOR', 'ADMIN'), appointmentsController.handleCancelAppointment);
+router.put('/:id/reschedule', guard('PATIENT'), bookingLimiter, validate(rescheduleSchema), appointmentsController.handleRescheduleAppointment);
+router.delete('/:id', guard('PATIENT', 'DOCTOR', 'ADMIN'), validate(cancelSchema), appointmentsController.handleCancelAppointment);
 router.patch('/:id/complete', guard('DOCTOR'), appointmentsController.handleCompleteAppointment);
 
 module.exports = router;

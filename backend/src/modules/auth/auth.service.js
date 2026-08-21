@@ -5,7 +5,7 @@ const prisma = require('../../config/db');
 async function registerPatient(data) {
   const { email, password, name, phone } = data;
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
   if (existing) {
     const error = new Error('Email already registered');
     error.statusCode = 409;
@@ -16,7 +16,7 @@ async function registerPatient(data) {
 
   const user = await prisma.user.create({
     data: {
-      email,
+      email: email.toLowerCase(),
       passwordHash,
       name,
       phone,
@@ -26,7 +26,7 @@ async function registerPatient(data) {
 
   const token = jwt.sign(
     { userId: user.id, role: user.role, email: user.email },
-    process.env.JWT_SECRET || 'fallback_secret',
+    process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
 
@@ -36,7 +36,7 @@ async function registerPatient(data) {
 async function registerDoctor(data) {
   const { email, password, name, phone, specialisation, slotDuration, workingHours, bio } = data;
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
   if (existing) {
     const error = new Error('Email already registered');
     error.statusCode = 409;
@@ -48,7 +48,7 @@ async function registerDoctor(data) {
   const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
-        email,
+        email: email.toLowerCase(),
         passwordHash,
         name,
         phone,
@@ -78,7 +78,7 @@ async function registerDoctor(data) {
 
   const token = jwt.sign(
     { userId: result.user.id, role: result.user.role, email: result.user.email },
-    process.env.JWT_SECRET || 'fallback_secret',
+    process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
 
@@ -96,7 +96,7 @@ async function registerDoctor(data) {
 
 async function login(email, password) {
   const user = await prisma.user.findUnique({
-    where: { email },
+    where: { email: email.toLowerCase() },
     include: { doctorProfile: true }
   });
 
@@ -115,7 +115,7 @@ async function login(email, password) {
 
   const token = jwt.sign(
     { userId: user.id, role: user.role, email: user.email },
-    process.env.JWT_SECRET || 'fallback_secret',
+    process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
 

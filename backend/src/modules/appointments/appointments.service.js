@@ -14,6 +14,26 @@ async function holdSlot(patientId, doctorId, startsAtIso) {
   }
 
   const startsAt = new Date(startsAtIso);
+
+  if (isNaN(startsAt.getTime())) {
+    const err = new Error('Invalid date format for startsAt');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (startsAt.getTime() <= Date.now()) {
+    const err = new Error('Cannot book a slot in the past');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  if (startsAt.getTime() > thirtyDaysFromNow.getTime()) {
+    const err = new Error('Cannot book more than 30 days in advance');
+    err.statusCode = 400;
+    throw err;
+  }
+
   const endsAt = new Date(startsAt.getTime() + doctor.slotDuration * 60 * 1000);
   const holdExpiresAt = new Date(Date.now() + 2 * 60 * 1000);
 
@@ -33,6 +53,20 @@ async function holdSlot(patientId, doctorId, startsAtIso) {
     if (existing) {
       const err = new Error('This slot is no longer available');
       err.statusCode = 409;
+      throw err;
+    }
+
+    const activeHolds = await tx.appointment.count({
+      where: {
+        patientId,
+        status: 'PENDING',
+        holdExpiresAt: { gt: new Date() }
+      }
+    });
+
+    if (activeHolds >= 3) {
+      const err = new Error('You already have 3 active holds. Please confirm or let them expire');
+      err.statusCode = 429;
       throw err;
     }
 
@@ -224,6 +258,12 @@ async function rescheduleAppointment(user, appointmentId, newStartsAtIso) {
     throw err;
   }
 
+  if (appt.status !== 'CONFIRMED') {
+    const err = new Error('Only confirmed appointments can be rescheduled');
+    err.statusCode = 400;
+    throw err;
+  }
+
   if (user.role === 'PATIENT' && appt.patientId !== user.userId) {
     const err = new Error('Access denied');
     err.statusCode = 403;
@@ -231,6 +271,19 @@ async function rescheduleAppointment(user, appointmentId, newStartsAtIso) {
   }
 
   const newStartsAt = new Date(newStartsAtIso);
+
+  if (isNaN(newStartsAt.getTime())) {
+    const err = new Error('Invalid date format');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (newStartsAt.getTime() <= Date.now()) {
+    const err = new Error('Cannot reschedule to a past time');
+    err.statusCode = 400;
+    throw err;
+  }
+
   const newEndsAt = new Date(newStartsAt.getTime() + appt.doctor.slotDuration * 60 * 1000);
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -295,6 +348,18 @@ async function cancelAppointment(user, appointmentId, reason) {
     throw err;
   }
 
+  if (appt.status === 'CANCELLED') {
+    const err = new Error('Appointment is already cancelled');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  if (appt.status === 'COMPLETED') {
+    const err = new Error('Completed appointments cannot be cancelled');
+    err.statusCode = 400;
+    throw err;
+  }
+
   if (user.role === 'PATIENT' && appt.patientId !== user.userId) {
     const err = new Error('Access denied');
     err.statusCode = 403;
@@ -338,6 +403,12 @@ async function completeAppointment(doctorUserId, appointmentId) {
   if (!appt || appt.doctor.userId !== doctorUserId) {
     const err = new Error('Appointment not found or unauthorized');
     err.statusCode = 403;
+    throw err;
+  }
+
+  if (appt.status !== 'CONFIRMED') {
+    const err = new Error('Only confirmed appointments can be marked as completed');
+    err.statusCode = 400;
     throw err;
   }
 

@@ -1,6 +1,19 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+
+const REQUIRED_ENV = ['DATABASE_URL', 'JWT_SECRET'];
+for (const key of REQUIRED_ENV) {
+  if (!process.env[key]) {
+    console.error(`FATAL: Missing required environment variable: ${key}`);
+    process.exit(1);
+  }
+}
+
+if (process.env.JWT_SECRET === 'fallback_secret') {
+  console.warn('WARNING: Using default JWT_SECRET is insecure. Set a strong secret in production.');
+}
 
 const authRouter = require('./modules/auth/auth.router');
 const adminRouter = require('./modules/admin/admin.router');
@@ -11,6 +24,7 @@ const visitsRouter = require('./modules/visits/visits.router');
 const calendarRouter = require('./modules/calendar/calendar.router');
 
 const errorHandler = require('./middleware/errorHandler');
+const { apiLimiter } = require('./middleware/rateLimiter');
 
 const startNotificationWorker = require('./jobs/notificationWorker');
 const startHoldExpiryJob = require('./jobs/holdExpiry');
@@ -19,8 +33,13 @@ const startMedicationReminderJob = require('./jobs/medicationReminder');
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+app.use(helmet());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true
+}));
+app.use(express.json({ limit: '1mb' }));
+app.use(apiLimiter);
 
 app.get('/api/v1/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
