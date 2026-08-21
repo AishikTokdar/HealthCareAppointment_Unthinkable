@@ -1,76 +1,99 @@
 const prisma = require('../../config/db');
 const { generatePreVisitSummary } = require('../../services/llm');
-const { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } = require('../../services/calendar');
+const { createCalendarEvent, deleteCalendarEvent } = require('../../services/calendar');
+
+const HOLD_DURATION_MS = 2 * 60 * 1000;
+const MAX_ACTIVE_HOLDS = 3;
+const MAX_ADVANCE_DAYS = 30;
 
 async function holdSlot(patientId, doctorId, startsAtIso) {
+  const startsAt = new Date(startsAtIso);
+  const now = new Date();
+
+  if (isNaN(startsAt.getTime()) || startsAt <= now) {
+    const err = new Error('Slot must be in the future');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const maxDate = new Date(now.getTime() + MAX_ADVANCE_DAYS * 24 * 60 * 60 * 1000);
+  if (startsAt > maxDate) {
+    const err = new Error(`Appointments can only be booked up to ${MAX_ADVANCE_DAYS} days in advance`);
+    err.statusCode = 400;
+    throw err;
+  }
+
   const doctor = await prisma.doctorProfile.findUnique({
     where: { id: doctorId }
   });
 
   if (!doctor || !doctor.isActive || doctor.approvalStatus !== 'APPROVED') {
-    const err = new Error('Doctor unavailable');
+    const err = new Error('Doctor not found or inactive');
     err.statusCode = 404;
     throw err;
   }
 
-  const startsAt = new Date(startsAtIso);
+  const leaveDate = new Date(startsAt);
+  leaveDate.setHours(0, 0, 0, 0);
 
-  if (isNaN(startsAt.getTime())) {
-    const err = new Error('Invalid date format for startsAt');
+  const leave = await prisma.leaveDay.findFirst({
+    where: { doctorId, date: leaveDate }
+  });
+
+  if (leave) {
+    const err = new Error('Doctor is on leave on this date');
     err.statusCode = 400;
     throw err;
   }
 
-  if (startsAt.getTime() <= Date.now()) {
-    const err = new Error('Cannot book a slot in the past');
-    err.statusCode = 400;
-    throw err;
-  }
+  const activeHolds = await prisma.appointment.count({
+    where: {
+      patientId,
+      status: 'PENDING',
+      holdExpiresAt: { gt: now }
+    }
+  });
 
-  const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-  if (startsAt.getTime() > thirtyDaysFromNow.getTime()) {
-    const err = new Error('Cannot book more than 30 days in advance');
-    err.statusCode = 400;
+  if (activeHolds >= MAX_ACTIVE_HOLDS) {
+    const err = new Error(`You already have ${activeHolds} active slot holds. Please complete or let existing holds expire before reserving more.`);
+    err.statusCode = 429;
     throw err;
   }
 
   const endsAt = new Date(startsAt.getTime() + doctor.slotDuration * 60 * 1000);
-  const holdExpiresAt = new Date(Date.now() + 2 * 60 * 1000);
+  const holdExpiresAt = new Date(now.getTime() + HOLD_DURATION_MS);
 
-  return prisma.$transaction(async (tx) => {
-    const existing = await tx.appointment.findFirst({
+  const result = await prisma.$transaction(async (tx) => {
+    const conflictingConfirms = await tx.appointment.findFirst({
       where: {
         doctorId,
         startsAt,
-        status: { in: ['CONFIRMED', 'PENDING'] },
-        OR: [
-          { status: 'CONFIRMED' },
-          { holdExpiresAt: { gt: new Date() } }
-        ]
+        status: 'CONFIRMED'
       }
     });
 
-    if (existing) {
-      const err = new Error('This slot is no longer available');
+    if (conflictingConfirms) {
+      const err = new Error('Slot already booked');
       err.statusCode = 409;
       throw err;
     }
 
-    const activeHolds = await tx.appointment.count({
+    const activePending = await tx.appointment.findFirst({
       where: {
-        patientId,
+        doctorId,
+        startsAt,
         status: 'PENDING',
-        holdExpiresAt: { gt: new Date() }
+        holdExpiresAt: { gt: now }
       }
     });
 
-    if (activeHolds >= 3) {
-      const err = new Error('You already have 3 active holds. Please confirm or let them expire');
-      err.statusCode = 429;
+    if (activePending) {
+      const err = new Error('Slot currently reserved by another patient');
+      err.statusCode = 409;
       throw err;
     }
 
-    const appointment = await tx.appointment.create({
+    const appt = await tx.appointment.create({
       data: {
         patientId,
         doctorId,
@@ -81,71 +104,72 @@ async function holdSlot(patientId, doctorId, startsAtIso) {
       }
     });
 
-    return { holdToken: appointment.id, expiresAt: holdExpiresAt };
+    return appt;
   });
+
+  return { holdToken: result.id, expiresAt: result.holdExpiresAt };
 }
 
 async function confirmBooking(patientId, holdToken, symptoms) {
+  const now = new Date();
+
   const appointment = await prisma.appointment.findUnique({
     where: { id: holdToken },
     include: {
       patient: true,
-      doctor: { include: { user: true } }
+      doctor: {
+        include: { user: true }
+      }
     }
   });
 
   if (!appointment || appointment.patientId !== patientId) {
-    const err = new Error('Invalid or expired hold token');
+    const err = new Error('Invalid hold token');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (appointment.status !== 'PENDING') {
+    const err = new Error('Appointment is not in pending state');
     err.statusCode = 400;
     throw err;
   }
 
-  if (appointment.status !== 'PENDING' || !appointment.holdExpiresAt || appointment.holdExpiresAt.getTime() < Date.now()) {
-    const err = new Error('Hold has expired. Please select a slot again');
-    err.statusCode = 409;
+  if (!appointment.holdExpiresAt || new Date(appointment.holdExpiresAt) < now) {
+    const err = new Error('Hold has expired');
+    err.statusCode = 410;
     throw err;
   }
 
-  const confirmed = await prisma.$transaction(async (tx) => {
-    const appt = await tx.appointment.update({
-      where: { id: holdToken },
-      data: {
-        status: 'CONFIRMED',
-        holdExpiresAt: null
-      }
-    });
+  const confirmed = await prisma.appointment.update({
+    where: { id: holdToken },
+    data: {
+      status: 'CONFIRMED',
+      holdExpiresAt: null
+    }
+  });
 
-    const symptomForm = await tx.symptomForm.create({
-      data: {
-        appointmentId: appt.id,
-        rawSymptoms: symptoms,
-        llmStatus: 'PENDING'
+  await prisma.notification.create({
+    data: {
+      userId: patientId,
+      type: 'BOOKING_CONFIRM',
+      payload: {
+        patientName: appointment.patient.name,
+        doctorName: appointment.doctor.user.name,
+        specialisation: appointment.doctor.specialisation,
+        startsAt: appointment.startsAt,
+        endsAt: appointment.endsAt
       }
-    });
-
-    await tx.notification.create({
-      data: {
-        userId: appointment.patientId,
-        type: 'BOOKING_CONFIRM',
-        payload: {
-          patientName: appointment.patient.name,
-          doctorName: appointment.doctor.user.name,
-          specialisation: appointment.doctor.specialisation,
-          startsAt: appointment.startsAt,
-          endsAt: appointment.endsAt
-        }
-      }
-    });
-
-    return { appointment: appt, symptomForm };
+    }
   });
 
   setImmediate(async () => {
     try {
       const llmRes = await generatePreVisitSummary(symptoms);
-      await prisma.symptomForm.update({
-        where: { appointmentId: holdToken },
+      await prisma.symptomForm.create({
         data: {
+          appointmentId: holdToken,
+          rawSymptoms: symptoms,
           urgency: llmRes.data?.urgency || 'Medium',
           chiefComplaint: llmRes.data?.chiefComplaint || '',
           suggestedQs: llmRes.data?.suggestedQuestions || [],
@@ -155,8 +179,8 @@ async function confirmBooking(patientId, holdToken, symptoms) {
       });
 
       const eventData = {
-        summary: `Medical Appointment: Dr. ${appointment.doctor.user.name}`,
-        description: `Doctor: Dr. ${appointment.doctor.user.name}\nSpecialisation: ${appointment.doctor.specialisation}\nSymptoms: ${symptoms}`,
+        summary: `Medical Appointment: ${appointment.doctor.user.name}`,
+        description: `Doctor: ${appointment.doctor.user.name}\nSpecialisation: ${appointment.doctor.specialisation}\nSymptoms: ${symptoms}`,
         startsAt: appointment.startsAt,
         endsAt: appointment.endsAt
       };
@@ -258,77 +282,53 @@ async function rescheduleAppointment(user, appointmentId, newStartsAtIso) {
     throw err;
   }
 
-  if (appt.status !== 'CONFIRMED') {
-    const err = new Error('Only confirmed appointments can be rescheduled');
-    err.statusCode = 400;
-    throw err;
-  }
-
   if (user.role === 'PATIENT' && appt.patientId !== user.userId) {
     const err = new Error('Access denied');
     err.statusCode = 403;
     throw err;
   }
 
+  if (appt.status === 'COMPLETED' || appt.status === 'CANCELLED') {
+    const err = new Error(`Cannot reschedule an appointment with status ${appt.status}`);
+    err.statusCode = 400;
+    throw err;
+  }
+
   const newStartsAt = new Date(newStartsAtIso);
+  const now = new Date();
 
-  if (isNaN(newStartsAt.getTime())) {
-    const err = new Error('Invalid date format');
+  if (isNaN(newStartsAt.getTime()) || newStartsAt <= now) {
+    const err = new Error('New slot date/time must be in the future');
     err.statusCode = 400;
     throw err;
   }
 
-  if (newStartsAt.getTime() <= Date.now()) {
-    const err = new Error('Cannot reschedule to a past time');
-    err.statusCode = 400;
-    throw err;
-  }
-
-  const newEndsAt = new Date(newStartsAt.getTime() + appt.doctor.slotDuration * 60 * 1000);
-
-  const updated = await prisma.$transaction(async (tx) => {
-    const conflict = await tx.appointment.findFirst({
-      where: {
-        doctorId: appt.doctorId,
-        startsAt: newStartsAt,
-        status: { in: ['CONFIRMED', 'PENDING'] },
-        id: { not: appointmentId }
-      }
-    });
-
-    if (conflict) {
-      const err = new Error('The selected new slot is not available');
-      err.statusCode = 409;
-      throw err;
+  const conflict = await prisma.appointment.findFirst({
+    where: {
+      doctorId: appt.doctorId,
+      startsAt: newStartsAt,
+      status: { in: ['CONFIRMED', 'PENDING'] },
+      id: { not: appointmentId }
     }
-
-    return tx.appointment.update({
-      where: { id: appointmentId },
-      data: {
-        startsAt: newStartsAt,
-        endsAt: newEndsAt,
-        status: 'CONFIRMED'
-      }
-    });
   });
 
-  if (appt.gcalEventId && appt.patient.gcalTokens) {
-    await updateCalendarEvent(appt.patient.gcalTokens, appt.gcalEventId, {
-      summary: `Medical Appointment: Dr. ${appt.doctor.user.name}`,
-      description: `Rescheduled appointment`,
-      startsAt: newStartsAt,
-      endsAt: newEndsAt
-    });
+  if (conflict) {
+    const err = new Error('The selected slot is already booked or reserved');
+    err.statusCode = 409;
+    throw err;
   }
 
-  if (appt.gcalDoctorEventId && appt.doctor.user.gcalTokens) {
-    await updateCalendarEvent(appt.doctor.user.gcalTokens, appt.gcalDoctorEventId, {
-      summary: `Patient Visit: ${appt.patient.name}`,
-      description: `Rescheduled appointment`,
+  const durationMs = appt.doctor.slotDuration * 60 * 1000;
+  const newEndsAt = new Date(newStartsAt.getTime() + durationMs);
+
+  const updated = await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: {
       startsAt: newStartsAt,
-      endsAt: newEndsAt
-    });
-  }
+      endsAt: newEndsAt,
+      status: 'CONFIRMED'
+    }
+  });
 
   return updated;
 }
@@ -348,21 +348,15 @@ async function cancelAppointment(user, appointmentId, reason) {
     throw err;
   }
 
-  if (appt.status === 'CANCELLED') {
-    const err = new Error('Appointment is already cancelled');
-    err.statusCode = 400;
-    throw err;
-  }
-
-  if (appt.status === 'COMPLETED') {
-    const err = new Error('Completed appointments cannot be cancelled');
-    err.statusCode = 400;
-    throw err;
-  }
-
   if (user.role === 'PATIENT' && appt.patientId !== user.userId) {
     const err = new Error('Access denied');
     err.statusCode = 403;
+    throw err;
+  }
+
+  if (appt.status === 'CANCELLED' || appt.status === 'COMPLETED') {
+    const err = new Error(`Appointment cannot be cancelled as it is already ${appt.status}`);
+    err.statusCode = 400;
     throw err;
   }
 
@@ -414,8 +408,191 @@ async function completeAppointment(doctorUserId, appointmentId) {
 
   return prisma.appointment.update({
     where: { id: appointmentId },
-    data: { status: 'COMPLETED' }
+    data: { status: 'COMPLETED', chatStatus: 'CLOSED' }
   });
+}
+
+async function startChat(doctorUserId, appointmentId) {
+  const appt = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: { doctor: true }
+  });
+
+  if (!appt || appt.doctor.userId !== doctorUserId) {
+    const err = new Error('Appointment not found or unauthorized');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  return prisma.appointment.update({
+    where: { id: appointmentId },
+    data: { chatStatus: 'ACTIVE' }
+  });
+}
+
+async function closeChat(user, appointmentId) {
+  const appt = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: { doctor: true }
+  });
+
+  if (!appt) {
+    const err = new Error('Appointment not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (user.role === 'PATIENT' && appt.patientId !== user.userId) {
+    const err = new Error('Access denied');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  if (user.role === 'DOCTOR' && appt.doctor.userId !== user.userId) {
+    const err = new Error('Access denied');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  return prisma.appointment.update({
+    where: { id: appointmentId },
+    data: { chatStatus: 'CLOSED' }
+  });
+}
+
+async function chatHeartbeat(user, appointmentId) {
+  const appt = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: {
+      doctor: true,
+      chatMessages: {
+        include: { sender: { select: { id: true, name: true, role: true } } },
+        orderBy: { createdAt: 'asc' }
+      }
+    }
+  });
+
+  if (!appt) {
+    const err = new Error('Appointment not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const now = new Date();
+  const updateData = {};
+  if (user.role === 'PATIENT') {
+    updateData.patientLastSeen = now;
+  } else if (user.role === 'DOCTOR') {
+    updateData.doctorLastSeen = now;
+  }
+
+  const updatedAppt = await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: updateData
+  });
+
+  const PRESENCE_TIMEOUT_MS = 15 * 1000;
+  const counterpartLastSeen = user.role === 'PATIENT' ? updatedAppt.doctorLastSeen : updatedAppt.patientLastSeen;
+  const isCounterpartOnline = counterpartLastSeen
+    ? (now.getTime() - new Date(counterpartLastSeen).getTime()) <= PRESENCE_TIMEOUT_MS
+    : false;
+
+  return {
+    chatStatus: updatedAppt.chatStatus,
+    isCounterpartOnline,
+    messages: appt.chatMessages
+  };
+}
+
+async function sendChatMessage(user, appointmentId, messageText) {
+  const appt = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: { doctor: true }
+  });
+
+  if (!appt) {
+    const err = new Error('Appointment not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (user.role === 'PATIENT' && appt.patientId !== user.userId) {
+    const err = new Error('Access denied');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  if (user.role === 'DOCTOR' && appt.doctor.userId !== user.userId) {
+    const err = new Error('Access denied');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  return prisma.chatMessage.create({
+    data: {
+      appointmentId,
+      senderId: user.userId,
+      message: messageText
+    },
+    include: {
+      sender: { select: { id: true, name: true, role: true } }
+    }
+  });
+}
+
+async function getChatMessages(user, appointmentId) {
+  const appt = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: { doctor: true }
+  });
+
+  if (!appt) {
+    const err = new Error('Appointment not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  if (user.role === 'PATIENT' && appt.patientId !== user.userId) {
+    const err = new Error('Access denied');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  if (user.role === 'DOCTOR' && appt.doctor.userId !== user.userId) {
+    const err = new Error('Access denied');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  return prisma.chatMessage.findMany({
+    where: { appointmentId },
+    include: {
+      sender: { select: { id: true, name: true, role: true } }
+    },
+    orderBy: { createdAt: 'asc' }
+  });
+}
+
+async function aiRefineDoctorDraft(user, appointmentId, draftText) {
+  const appt = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: { doctor: true, symptomForm: true }
+  });
+
+  if (!appt || appt.doctor.userId !== user.userId) {
+    const err = new Error('Appointment not found or unauthorized');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  const { refineDoctorMessage } = require('../../services/llm');
+  const refined = await refineDoctorMessage(
+    draftText,
+    appt.symptomForm?.rawSymptoms,
+    appt.symptomForm?.chiefComplaint
+  );
+
+  return { refinedText: refined };
 }
 
 module.exports = {
@@ -425,5 +602,11 @@ module.exports = {
   getAppointmentDetail,
   rescheduleAppointment,
   cancelAppointment,
-  completeAppointment
+  completeAppointment,
+  startChat,
+  closeChat,
+  chatHeartbeat,
+  sendChatMessage,
+  getChatMessages,
+  aiRefineDoctorDraft
 };

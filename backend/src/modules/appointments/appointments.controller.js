@@ -76,6 +76,68 @@ async function handleCompleteAppointment(req, res, next) {
   }
 }
 
+async function handleStartChat(req, res, next) {
+  try {
+    const result = await appointmentsService.startChat(req.user.userId, req.params.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function handleCloseChat(req, res, next) {
+  try {
+    const result = await appointmentsService.closeChat(req.user, req.params.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function handleChatHeartbeat(req, res, next) {
+  try {
+    const result = await appointmentsService.chatHeartbeat(req.user, req.params.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function handleSendChatMessage(req, res, next) {
+  try {
+    const { message } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'message is required' });
+    }
+    const msg = await appointmentsService.sendChatMessage(req.user, req.params.id, message);
+    res.status(201).json(msg);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function handleGetChatMessages(req, res, next) {
+  try {
+    const list = await appointmentsService.getChatMessages(req.user, req.params.id);
+    res.json(list);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function handleAiRefineDraft(req, res, next) {
+  try {
+    const { draft } = req.body;
+    if (!draft || !draft.trim()) {
+      return res.status(400).json({ error: 'draft is required' });
+    }
+    const result = await appointmentsService.aiRefineDoctorDraft(req.user, req.params.id, draft);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   handleHoldSlot,
   handleConfirmBooking,
@@ -83,5 +145,11 @@ module.exports = {
   handleGetAppointmentDetail,
   handleRescheduleAppointment,
   handleCancelAppointment,
-  handleCompleteAppointment
+  handleCompleteAppointment,
+  handleStartChat,
+  handleCloseChat,
+  handleChatHeartbeat,
+  handleSendChatMessage,
+  handleGetChatMessages,
+  handleAiRefineDraft
 };

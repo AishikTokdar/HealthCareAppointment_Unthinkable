@@ -41,9 +41,33 @@ async function handleGetDoctorAppointments(req, res, next) {
   }
 }
 
+async function handleRequestLeave(req, res, next) {
+  try {
+    const { date, reason } = req.body;
+    if (!date) {
+      return res.status(400).json({ error: 'date is required' });
+    }
+    const result = await doctorsService.requestLeave(req.user.userId, date, reason);
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function handleGetMyLeaveRequests(req, res, next) {
+  try {
+    const list = await doctorsService.getMyLeaveRequests(req.user.userId);
+    res.json(list);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   handleSearchDoctors,
   handleGetDoctorPublicProfile,
   handleGetDoctorSlots,
-  handleGetDoctorAppointments
+  handleGetDoctorAppointments,
+  handleRequestLeave,
+  handleGetMyLeaveRequests
 };

@@ -6,6 +6,10 @@ const leaveConflict = require('./templates/leaveConflict');
 const medicationReminder = require('./templates/medicationReminder');
 const doctorApproved = require('./templates/doctorApproved');
 const doctorRejected = require('./templates/doctorRejected');
+const doctorLeaveApproved = require('./templates/doctorLeaveApproved');
+const adminLeaveApproved = require('./templates/adminLeaveApproved');
+const doctorLeaveRejected = require('./templates/doctorLeaveRejected');
+const doctorLeaveScheduled = require('./templates/doctorLeaveScheduled');
 
 const templateMap = {
   BOOKING_CONFIRM: bookingConfirmation,
@@ -14,7 +18,13 @@ const templateMap = {
   LEAVE_CONFLICT: leaveConflict,
   MED_REMINDER: medicationReminder,
   DOCTOR_APPROVED: doctorApproved,
-  DOCTOR_REJECTED: doctorRejected
+  DOCTOR_REJECTED: doctorRejected,
+  LEAVE_APPROVED: (payload) => payload.isAdminSummary ? adminLeaveApproved(payload) : doctorLeaveApproved(payload),
+  LEAVE_REJECTED: doctorLeaveRejected,
+  LEAVE_REQUESTED: (payload) => ({
+    subject: `[ADMIN ALERT] New Doctor Leave Request from ${payload.doctorName}`,
+    html: `<div style="font-family: sans-serif; background: #080c14; color: #f1f5f9; padding: 32px; border-radius: 16px;"><h3 style="color:#7c5cfc;">New Doctor Leave Request</h3><p>${payload.doctorName} requested leave for <strong>${payload.leaveDate}</strong>.</p><p>Reason: ${payload.reason || 'N/A'}</p><p>Please review and approve in Admin Portal.</p></div>`
+  })
 };
 
 async function sendNotification(notificationRecord, userEmail) {

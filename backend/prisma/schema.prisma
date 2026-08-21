@@ -20,6 +20,12 @@ enum AppointmentStatus {
   COMPLETED
 }
 
+enum ChatStatus {
+  NOT_STARTED
+  ACTIVE
+  CLOSED
+}
+
 enum LLMStatus {
   PENDING
   SUCCESS
@@ -34,6 +40,9 @@ enum NotificationType {
   MED_REMINDER
   DOCTOR_APPROVED
   DOCTOR_REJECTED
+  LEAVE_REQUESTED
+  LEAVE_APPROVED
+  LEAVE_REJECTED
 }
 
 enum NotificationStatus {
@@ -43,6 +52,12 @@ enum NotificationStatus {
 }
 
 enum DoctorApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LeaveRequestStatus {
   PENDING
   APPROVED
   REJECTED
@@ -61,6 +76,7 @@ model User {
   doctorProfile   DoctorProfile?
   notifications   Notification[]
   reminders       MedicationReminder[]
+  chatMessages    ChatMessage[]
 }
 
 model DoctorProfile {
@@ -76,6 +92,7 @@ model DoctorProfile {
   isActive       Boolean              @default(true)
   appointments   Appointment[]
   leaveDays      LeaveDay[]
+  leaveRequests  LeaveRequest[]
 }
 
 model LeaveDay {
@@ -88,6 +105,18 @@ model LeaveDay {
   @@unique([doctorId, date])
 }
 
+model LeaveRequest {
+  id        String             @id @default(uuid())
+  doctorId  String
+  doctor    DoctorProfile      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  date      DateTime           @db.Date
+  reason    String?
+  status    LeaveRequestStatus @default(PENDING)
+  createdAt DateTime           @default(now())
+
+  @@index([doctorId])
+}
+
 model Appointment {
   id                String            @id @default(uuid())
   patientId         String
@@ -97,12 +126,16 @@ model Appointment {
   startsAt          DateTime
   endsAt            DateTime
   status            AppointmentStatus @default(PENDING)
+  chatStatus        ChatStatus        @default(NOT_STARTED)
+  patientLastSeen   DateTime?
+  doctorLastSeen    DateTime?
   holdExpiresAt     DateTime?
   gcalEventId       String?
   gcalDoctorEventId String?
   createdAt         DateTime          @default(now())
   symptomForm       SymptomForm?
   visitNote         VisitNote?
+  chatMessages      ChatMessage[]
 
   @@unique([doctorId, startsAt])
   @@index([patientId])
@@ -161,4 +194,16 @@ model Notification {
   createdAt   DateTime           @default(now())
 
   @@index([status, nextRetryAt])
+}
+
+model ChatMessage {
+  id            String      @id @default(uuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  senderId      String
+  sender        User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  message       String
+  createdAt     DateTime    @default(now())
+
+  @@index([appointmentId])
 }

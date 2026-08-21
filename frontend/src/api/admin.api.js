@@ -9,6 +9,9 @@ export const adminApi = {
   updateDoctor: (id, data) => client.put(`/admin/doctors/${id}`, data),
   addLeave: (id, date, reason) => client.post(`/admin/doctors/${id}/leave`, { date, reason }),
   removeLeave: (id, leaveId) => client.delete(`/admin/doctors/${id}/leave/${leaveId}`),
+  getPendingLeaveRequests: () => client.get('/admin/leave-requests'),
+  approveLeaveRequest: (id) => client.post(`/admin/leave-requests/${id}/approve`),
+  rejectLeaveRequest: (id, reason) => client.post(`/admin/leave-requests/${id}/reject`, { reason }),
   getStats: () => client.get('/admin/stats'),
   getNotifications: () => client.get('/admin/notifications')
 };

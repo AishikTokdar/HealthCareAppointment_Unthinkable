@@ -65,6 +65,34 @@ async function handleRemoveLeave(req, res, next) {
   }
 }
 
+async function handleGetPendingLeaveRequests(req, res, next) {
+  try {
+    const list = await adminService.getPendingLeaveRequests();
+    res.json(list);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function handleApproveLeaveRequest(req, res, next) {
+  try {
+    const result = await adminService.approveLeaveRequest(req.params.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function handleRejectLeaveRequest(req, res, next) {
+  try {
+    const { reason } = req.body;
+    const result = await adminService.rejectLeaveRequest(req.params.id, reason);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function handleGetAllDoctors(req, res, next) {
   try {
     const doctors = await adminService.getAllDoctors();
@@ -100,6 +128,9 @@ module.exports = {
   handleUpdateDoctor,
   handleAddLeave,
   handleRemoveLeave,
+  handleGetPendingLeaveRequests,
+  handleApproveLeaveRequest,
+  handleRejectLeaveRequest,
   handleGetAllDoctors,
   handleGetStats,
   handleGetNotificationLog

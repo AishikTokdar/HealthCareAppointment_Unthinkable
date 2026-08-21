@@ -151,9 +151,81 @@ async function getDoctorAppointments(doctorUserId) {
   });
 }
 
+async function requestLeave(doctorUserId, dateString, reason) {
+  const profile = await prisma.doctorProfile.findUnique({
+    where: { userId: doctorUserId },
+    include: { user: true }
+  });
+
+  if (!profile) {
+    const err = new Error('Doctor profile not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const leaveDate = new Date(dateString);
+  leaveDate.setHours(0, 0, 0, 0);
+
+  const existingRequest = await prisma.leaveRequest.findFirst({
+    where: {
+      doctorId: profile.id,
+      date: leaveDate,
+      status: 'PENDING'
+    }
+  });
+
+  if (existingRequest) {
+    const err = new Error('A leave request is already pending for this date');
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const leaveRequest = await prisma.leaveRequest.create({
+    data: {
+      doctorId: profile.id,
+      date: leaveDate,
+      reason,
+      status: 'PENDING'
+    }
+  });
+
+  const admins = await prisma.user.findMany({ where: { role: 'ADMIN' } });
+  for (const admin of admins) {
+    await prisma.notification.create({
+      data: {
+        userId: admin.id,
+        type: 'LEAVE_REQUESTED',
+        payload: {
+          doctorName: profile.user.name,
+          doctorId: profile.id,
+          leaveDate: dateString,
+          reason
+        }
+      }
+    });
+  }
+
+  return leaveRequest;
+}
+
+async function getMyLeaveRequests(doctorUserId) {
+  const profile = await prisma.doctorProfile.findUnique({
+    where: { userId: doctorUserId }
+  });
+
+  if (!profile) return [];
+
+  return prisma.leaveRequest.findMany({
+    where: { doctorId: profile.id },
+    orderBy: { createdAt: 'desc' }
+  });
+}
+
 module.exports = {
   searchDoctors,
   getDoctorPublicProfile,
   getDoctorSlots,
-  getDoctorAppointments
+  getDoctorAppointments,
+  requestLeave,
+  getMyLeaveRequests
 };

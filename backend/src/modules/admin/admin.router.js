@@ -22,6 +22,11 @@ router.post('/doctors', validate(createDoctorDirectlySchema), adminController.ha
 router.put('/doctors/:id', validate(updateDoctorProfileSchema), adminController.handleUpdateDoctor);
 router.post('/doctors/:id/leave', validate(addLeaveSchema), adminController.handleAddLeave);
 router.delete('/doctors/:id/leave/:leaveId', adminController.handleRemoveLeave);
+
+router.get('/leave-requests', adminController.handleGetPendingLeaveRequests);
+router.post('/leave-requests/:id/approve', adminController.handleApproveLeaveRequest);
+router.post('/leave-requests/:id/reject', adminController.handleRejectLeaveRequest);
+
 router.get('/stats', adminController.handleGetStats);
 router.get('/notifications', adminController.handleGetNotificationLog);
 
