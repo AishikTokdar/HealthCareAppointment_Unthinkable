@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import Sidebar from '../../components/layout/Sidebar';
 import Modal from '../../components/ui/Modal';
 import { adminApi } from '../../api/admin.api';
-import { UserCheck, Check, X, Clock } from 'lucide-react';
+import { Check, X, UserCheck } from 'lucide-react';
 
 export default function PendingDoctors() {
   const [pending, setPending] = useState([]);
@@ -50,51 +50,61 @@ export default function PendingDoctors() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
+    <div className="page-layout">
       <Sidebar />
-      <main style={{ flex: 1, padding: 40, maxWidth: 1100 }}>
-        <h1 style={{ fontSize: 28, color: 'var(--text-primary)', marginBottom: 8 }}>Doctor Registration Queue</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 32 }}>Review doctor applications before granting clinic access.</p>
+      <main className="page-main" style={{ maxWidth: 1100 }}>
+        <div className="page-header">
+          <h1>Doctor Registration Queue</h1>
+          <p>Review doctor applications before granting clinic access.</p>
+        </div>
 
         {loading ? (
-          <div style={{ color: 'var(--text-muted)' }}>Loading queue...</div>
+          <div className="loading-text">Loading queue...</div>
         ) : pending.length === 0 ? (
-          <div className="glass-card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-            No doctor accounts currently pending review.
+          <div className="card empty-state">
+            <UserCheck size={36} />
+            <h3>No pending registrations</h3>
+            <p>No doctor accounts currently await review.</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="card list-stack">
             {pending.map((doc) => (
               <motion.div
                 key={doc.id}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="glass-card"
-                style={{ padding: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                className="list-item"
               >
-                <div>
-                  <h3 style={{ fontSize: 18, color: 'var(--text-primary)', marginBottom: 4 }}>{doc.user?.name}</h3>
-                  <p style={{ fontSize: 14, color: 'var(--accent-cyan)', marginBottom: 6 }}>{doc.specialisation} • {doc.slotDuration} mins slot</p>
-                  <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Email: {doc.user?.email} • Applied: {new Date(doc.user?.createdAt).toLocaleDateString('en-IN')}</p>
+                <div className="list-item-info">
+                  <div className="avatar avatar-md">
+                    <UserCheck size={20} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 500, marginBottom: 2 }}>{doc.user?.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                      {doc.specialisation} · {doc.slotDuration} mins slot
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      Email: {doc.user?.email} · Applied: {new Date(doc.user?.createdAt).toLocaleDateString('en-IN')}
+                    </div>
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 12 }}>
+                <div className="list-item-actions">
                   <button
                     onClick={() => {
                       setSelectedDoctor(doc);
                       setShowRejectModal(true);
                     }}
-                    className="btn-danger"
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}
+                    className="btn btn-danger btn-sm"
                   >
-                    <X size={16} /> Reject
+                    <X size={14} /> Reject
                   </button>
                   <button
                     onClick={() => handleApprove(doc.id)}
-                    className="btn-primary"
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 16px' }}
+                    className="btn btn-accent btn-sm"
                   >
-                    <Check size={16} /> Approve
+                    <Check size={14} /> Approve
                   </button>
                 </div>
               </motion.div>
@@ -103,20 +113,19 @@ export default function PendingDoctors() {
         )}
 
         <Modal isOpen={showRejectModal} onClose={() => setShowRejectModal(false)} title="Reject Doctor Application">
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 16 }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 16 }}>
             Provide rejection feedback for {selectedDoctor?.user?.name}:
           </p>
           <textarea
-            className="input-field"
+            className="input mb-20"
             rows={3}
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             placeholder="Reason for rejection..."
-            style={{ marginBottom: 20 }}
           />
           <div style={{ display: 'flex', gap: 12 }}>
-            <button onClick={() => setShowRejectModal(false)} className="btn-secondary" style={{ flex: 1 }}>Cancel</button>
-            <button onClick={handleReject} disabled={processing} className="btn-danger" style={{ flex: 1 }}>
+            <button onClick={() => setShowRejectModal(false)} className="btn btn-ghost" style={{ flex: 1 }}>Cancel</button>
+            <button onClick={handleReject} disabled={processing} className="btn btn-danger" style={{ flex: 1 }}>
               {processing ? 'Processing...' : 'Confirm Rejection'}
             </button>
           </div>

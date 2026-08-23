@@ -7,7 +7,7 @@ import UrgencyBadge from '../../components/ui/UrgencyBadge';
 import Modal from '../../components/ui/Modal';
 import { doctorsApi } from '../../api/doctors.api';
 import { calendarApi } from '../../api/calendar.api';
-import { Calendar, User, Clock, CheckCircle2, ChevronRight, AlertCircle, ShieldAlert, Plus, Send } from 'lucide-react';
+import { Calendar, User, Clock, CheckCircle2, ChevronRight, ShieldAlert } from 'lucide-react';
 
 export default function DoctorDashboard() {
   const { user } = useContext(AuthContext);
@@ -23,82 +23,56 @@ export default function DoctorDashboard() {
   const [leaveMsg, setLeaveMsg] = useState('');
   const [leaveErr, setLeaveErr] = useState('');
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = () => {
     setLoading(true);
     Promise.all([
       doctorsApi.getDoctorAppointments().catch(err => {
-        if (err.response?.data?.approvalStatus === 'PENDING' || err.response?.status === 403) {
-          setApiPending(true);
-        }
+        if (err.response?.data?.approvalStatus === 'PENDING' || err.response?.status === 403) setApiPending(true);
         return { data: [] };
       }),
       doctorsApi.getMyLeaveRequests().catch(() => ({ data: [] }))
-    ])
-      .then(([apptsRes, leavesRes]) => {
-        setAppointments(apptsRes.data || []);
-        setLeaveRequests(leavesRes.data || []);
-      })
-      .finally(() => setLoading(false));
+    ]).then(([apptsRes, leavesRes]) => {
+      setAppointments(apptsRes.data || []);
+      setLeaveRequests(leavesRes.data || []);
+    }).finally(() => setLoading(false));
   };
 
   const handleConnectCalendar = async () => {
-    try {
-      const res = await calendarApi.getAuthUrl();
-      window.location.href = res.data.url;
-    } catch (err) {
-      alert('Failed to connect Google Calendar');
-    }
+    try { const res = await calendarApi.getAuthUrl(); window.location.href = res.data.url; }
+    catch (err) { alert('Failed to connect Google Calendar'); }
   };
 
   const handleRequestLeave = async (e) => {
     e.preventDefault();
-    setLeaveMsg('');
-    setLeaveErr('');
-    setSubmittingLeave(true);
-
+    setLeaveMsg(''); setLeaveErr(''); setSubmittingLeave(true);
     try {
       await doctorsApi.requestLeave(leaveDate, leaveReason);
-      setLeaveMsg('Leave request submitted successfully! Pending admin approval.');
-      setLeaveDate('');
-      setLeaveReason('');
+      setLeaveMsg('Leave request submitted.');
+      setLeaveDate(''); setLeaveReason('');
       fetchData();
-      setTimeout(() => {
-        setShowLeaveModal(false);
-        setLeaveMsg('');
-      }, 1800);
+      setTimeout(() => { setShowLeaveModal(false); setLeaveMsg(''); }, 1800);
     } catch (err) {
       setLeaveErr(err.response?.data?.error || 'Failed to submit leave request');
-    } finally {
-      setSubmittingLeave(false);
-    }
+    } finally { setSubmittingLeave(false); }
   };
 
   const isPending = user?.approvalStatus === 'PENDING' || user?.doctorProfile?.approvalStatus === 'PENDING' || apiPending;
 
   if (isPending) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
+      <div className="page-layout">
         <Sidebar />
-        <main style={{ flex: 1, padding: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="glass-card"
-            style={{ padding: 48, maxWidth: 540, textAlign: 'center', borderTop: '4px solid var(--accent-amber)' }}
-          >
-            <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(245, 158, 11, 0.15)', color: 'var(--accent-amber)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-              <ShieldAlert size={36} />
-            </div>
-            <h2 style={{ fontSize: 24, color: 'var(--text-primary)', marginBottom: 12 }}>Account Pending Approval</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 15, lineHeight: 1.6, marginBottom: 24 }}>
-              Your doctor profile registration is currently being reviewed by clinic administration. Access to clinical schedules, patient briefings, and consultations is restricted until approval.
+        <main className="page-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="card" style={{ padding: 40, maxWidth: 480, textAlign: 'center', borderTop: '3px solid var(--warning)' }}>
+            <ShieldAlert size={32} style={{ color: 'var(--warning)', marginBottom: 16 }} />
+            <h2 style={{ fontSize: 18, marginBottom: 8 }}>Account Pending Approval</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.6, marginBottom: 20 }}>
+              Your doctor profile is being reviewed by administration. Access to schedules and consultations is restricted until approval.
             </p>
-            <div style={{ background: 'var(--bg-surface)', padding: '14px 20px', borderRadius: 'var(--radius-md)', fontSize: 13, color: 'var(--accent-amber)', fontWeight: 500 }}>
-              Please contact the clinic administrator to review and approve your account.
+            <div className="card-flat" style={{ padding: '10px 16px', fontSize: 12, color: 'var(--warning)' }}>
+              Please contact the clinic administrator.
             </div>
           </motion.div>
         </main>
@@ -107,74 +81,46 @@ export default function DoctorDashboard() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
+    <div className="page-layout">
       <Sidebar />
-      <main style={{ flex: 1, padding: 40, maxWidth: 1100 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <div>
-            <h1 style={{ fontSize: 28, color: 'var(--text-primary)', marginBottom: 4 }}>
-              Welcome, <span className="gradient-text">{user?.name}</span>
-            </h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Here is your clinical appointment schedule and pre-visit AI symptom briefings.</p>
+      <main className="page-main" style={{ maxWidth: 1050 }}>
+        <div className="page-header">
+          <div className="page-header-row">
+            <div>
+              <h1>Welcome, {user?.name}</h1>
+              <p>Your appointment schedule and patient briefings.</p>
+            </div>
+            <button onClick={() => setShowLeaveModal(true)} className="btn btn-ghost">
+              <Calendar size={15} /> Request Leave
+            </button>
           </div>
-
-          <button
-            onClick={() => setShowLeaveModal(true)}
-            className="btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', fontSize: 14 }}
-          >
-            <Calendar size={18} /> Request Leave
-          </button>
         </div>
 
         {!user?.hasGcalConnected && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="glass-card"
-            style={{
-              padding: 20,
-              marginBottom: 32,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              borderLeft: '4px solid var(--accent-cyan)'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <Calendar size={28} style={{ color: 'var(--accent-cyan)' }} />
+          <div className="card mb-24" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderLeft: '3px solid var(--accent)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Calendar size={20} style={{ color: 'var(--accent)' }} />
               <div>
-                <h4 style={{ fontSize: 16, color: 'var(--text-primary)' }}>Sync with Google Calendar</h4>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Automatically add your patient appointments to your personal schedule.</p>
+                <div style={{ fontSize: 13, fontWeight: 500 }}>Sync with Google Calendar</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Add patient appointments to your schedule.</div>
               </div>
             </div>
-            <button onClick={handleConnectCalendar} className="btn-secondary" style={{ fontSize: 13, padding: '8px 16px' }}>
-              Connect Now
-            </button>
-          </motion.div>
+            <button onClick={handleConnectCalendar} className="btn btn-ghost btn-sm">Connect</button>
+          </div>
         )}
 
         {leaveRequests.length > 0 && (
-          <div className="glass-card" style={{ padding: 20, marginBottom: 32 }}>
-            <h3 style={{ fontSize: 16, color: 'var(--text-primary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Calendar size={18} style={{ color: 'var(--accent-violet)' }} /> My Leave Requests
+          <div className="card mb-24" style={{ padding: 20 }}>
+            <h3 className="section-title mb-12" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Calendar size={15} style={{ color: 'var(--text-muted)' }} /> My Leave Requests
             </h3>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {leaveRequests.map(lr => (
-                <div key={lr.id} style={{ background: 'var(--bg-surface)', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', fontSize: 13 }}>
-                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{new Date(lr.date).toLocaleDateString('en-IN')}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{lr.reason || 'No reason provided'}</div>
-                  <span style={{
-                    display: 'inline-block',
-                    marginTop: 6,
-                    padding: '2px 8px',
-                    borderRadius: 10,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    background: lr.status === 'APPROVED' ? 'rgba(16, 185, 129, 0.15)' : lr.status === 'REJECTED' ? 'rgba(244, 63, 94, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                    color: lr.status === 'APPROVED' ? 'var(--accent-emerald)' : lr.status === 'REJECTED' ? 'var(--accent-rose)' : 'var(--accent-amber)'
-                  }}>
-                    {lr.status === 'PENDING' ? 'Pending Admin Review' : lr.status === 'APPROVED' ? 'Approved' : 'Declined'}
+                <div key={lr.id} className="card-flat" style={{ padding: '8px 12px', fontSize: 12 }}>
+                  <div style={{ fontWeight: 500 }}>{new Date(lr.date).toLocaleDateString('en-IN')}</div>
+                  <div style={{ color: 'var(--text-muted)', marginBottom: 4 }}>{lr.reason || 'No reason'}</div>
+                  <span className={`badge ${lr.status === 'APPROVED' ? 'badge-success' : lr.status === 'REJECTED' ? 'badge-danger' : 'badge-warning'}`}>
+                    {lr.status === 'PENDING' ? 'Pending' : lr.status === 'APPROVED' ? 'Approved' : 'Declined'}
                   </span>
                 </div>
               ))}
@@ -182,55 +128,41 @@ export default function DoctorDashboard() {
           </div>
         )}
 
-        <h2 style={{ fontSize: 20, color: 'var(--text-primary)', marginBottom: 16 }}>Patient Appointments Schedule</h2>
+        <h2 className="section-title mb-12">Patient Schedule</h2>
 
         {loading ? (
-          <div style={{ color: 'var(--text-muted)' }}>Loading schedule...</div>
+          <div className="loading-text">Loading schedule...</div>
         ) : appointments.length === 0 ? (
-          <div className="glass-card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-            No patient appointments scheduled.
+          <div className="card empty-state">
+            <Calendar size={36} />
+            <h3>No appointments scheduled</h3>
+            <p>You currently have no patient appointments.</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="card list-stack">
             {appointments.map((appt) => (
-              <motion.div
-                key={appt.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="glass-card"
-                style={{ padding: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-                  <div style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 14,
-                    background: 'var(--bg-elevated)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'var(--accent-cyan)'
-                  }}>
-                    <User size={24} />
-                  </div>
+              <motion.div key={appt.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="list-item">
+                <div className="list-item-info">
+                  <div className="avatar avatar-md"><User size={20} /></div>
                   <div>
-                    <h3 style={{ fontSize: 16, color: 'var(--text-primary)', marginBottom: 4 }}>{appt.patient?.name}</h3>
-                    <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                      <Clock size={14} style={{ display: 'inline', marginRight: 4 }} />
-                      {new Date(appt.startsAt).toLocaleString('en-IN')}
-                    </p>
+                    <div style={{ fontWeight: 500, marginBottom: 2 }}>{appt.patient?.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                      <Clock size={12} /> {new Date(appt.startsAt).toLocaleString('en-IN')}
+                    </div>
                     {appt.symptomForm?.chiefComplaint && (
-                      <p style={{ fontSize: 13, color: 'var(--accent-cyan)', fontStyle: 'italic' }}>
-                        Chief complaint: "{appt.symptomForm.chiefComplaint}"
-                      </p>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                        "{appt.symptomForm.chiefComplaint}"
+                      </div>
                     )}
                   </div>
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div className="list-item-actions">
+                  <span className={`badge ${appt.status === 'CONFIRMED' ? 'badge-success' : appt.status === 'COMPLETED' ? 'badge-accent' : appt.status === 'CANCELLED' ? 'badge-danger' : 'badge-warning'}`} style={{ fontSize: 11 }}>
+                    {appt.status}
+                  </span>
                   {appt.symptomForm?.urgency && <UrgencyBadge level={appt.symptomForm.urgency} />}
-                  <Link to={`/doctor/appointments/${appt.id}`} className="btn-primary" style={{ fontSize: 13, padding: '8px 16px' }}>
-                    Review Patient <ChevronRight size={16} />
+                  <Link to={`/doctor/appointments/${appt.id}`} className="btn btn-ghost btn-sm">
+                    Review <ChevronRight size={14} />
                   </Link>
                 </div>
               </motion.div>
@@ -238,47 +170,22 @@ export default function DoctorDashboard() {
           </div>
         )}
 
-        <Modal isOpen={showLeaveModal} onClose={() => setShowLeaveModal(false)} title="Submit Leave Request">
-          {leaveErr && (
-            <div style={{ background: 'rgba(244, 63, 94, 0.15)', border: '1px solid rgba(244, 63, 94, 0.3)', color: 'var(--accent-rose)', padding: '10px 14px', borderRadius: 'var(--radius-md)', marginBottom: 16, fontSize: 13 }}>
-              {leaveErr}
-            </div>
-          )}
-          {leaveMsg && (
-            <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: 'var(--accent-emerald)', padding: '10px 14px', borderRadius: 'var(--radius-md)', marginBottom: 16, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <CheckCircle2 size={16} /> {leaveMsg}
-            </div>
-          )}
-
+        <Modal isOpen={showLeaveModal} onClose={() => setShowLeaveModal(false)} title="Request Leave">
+          {leaveErr && <div className="alert alert-danger mb-12">{leaveErr}</div>}
+          {leaveMsg && <div className="alert alert-success mb-12"><CheckCircle2 size={14} /> {leaveMsg}</div>}
           <form onSubmit={handleRequestLeave}>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>Leave Date</label>
-              <input
-                type="date"
-                className="input-field"
-                value={leaveDate}
-                min={new Date().toISOString().split('T')[0]}
-                onChange={(e) => setLeaveDate(e.target.value)}
-                required
-              />
+            <div className="form-group mb-12">
+              <label className="label">Date</label>
+              <input type="date" className="input" value={leaveDate} min={new Date().toISOString().split('T')[0]} onChange={(e) => setLeaveDate(e.target.value)} required />
             </div>
-            <div style={{ marginBottom: 24 }}>
-              <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>Reason for Leave</label>
-              <textarea
-                className="input-field"
-                rows={3}
-                value={leaveReason}
-                onChange={(e) => setLeaveReason(e.target.value)}
-                placeholder="E.g., Attending medical conference, personal family leave..."
-              />
+            <div className="form-group mb-20">
+              <label className="label">Reason</label>
+              <textarea className="input" rows={3} value={leaveReason} onChange={(e) => setLeaveReason(e.target.value)} placeholder="Conference, personal leave..." />
             </div>
-
-            <div style={{ display: 'flex', gap: 12 }}>
-              <button type="button" onClick={() => setShowLeaveModal(false)} className="btn-secondary" style={{ flex: 1 }}>
-                Cancel
-              </button>
-              <button type="submit" disabled={submittingLeave} className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
-                {submittingLeave ? 'Submitting...' : 'Submit Request'}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button type="button" onClick={() => setShowLeaveModal(false)} className="btn btn-ghost" style={{ flex: 1 }}>Cancel</button>
+              <button type="submit" disabled={submittingLeave} className="btn btn-accent" style={{ flex: 1 }}>
+                {submittingLeave ? 'Submitting...' : 'Submit'}
               </button>
             </div>
           </form>

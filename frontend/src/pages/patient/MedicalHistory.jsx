@@ -5,10 +5,10 @@ import Sidebar from '../../components/layout/Sidebar';
 import UrgencyBadge from '../../components/ui/UrgencyBadge';
 import { appointmentsApi } from '../../api/appointments.api';
 import { generatePrescriptionPdf } from '../../utils/generatePrescriptionPdf';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
-import { Calendar, User, Pill, Activity, Download, Clock, ShieldCheck, FileText, CheckCircle2 } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { Pill, Activity, Download, CheckCircle2 } from 'lucide-react';
 
-const COLORS = ['#10b981', '#f59e0b', '#f43f5e'];
+import { cleanText } from '../../utils/cleanText';
 
 export default function PatientMedicalHistory() {
   const { user } = useContext(AuthContext);
@@ -16,16 +16,11 @@ export default function PatientMedicalHistory() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchHistory();
-  }, []);
-
-  const fetchHistory = () => {
-    setLoading(true);
     appointmentsApi.getPatientAppointments()
       .then(res => setAppointments(res.data || []))
       .catch(console.error)
       .finally(() => setLoading(false));
-  };
+  }, []);
 
   const urgencyCounts = appointments.reduce((acc, appt) => {
     const u = appt.symptomForm?.urgency || 'Medium';
@@ -34,10 +29,12 @@ export default function PatientMedicalHistory() {
   }, {});
 
   const urgencyData = [
-    { name: 'Low Urgency', value: urgencyCounts['Low'] || 0, color: '#10b981' },
-    { name: 'Medium Urgency', value: urgencyCounts['Medium'] || 0, color: '#f59e0b' },
-    { name: 'High Urgency', value: urgencyCounts['High'] || 0, color: '#f43f5e' }
+    { name: 'Low', value: urgencyCounts['Low'] || 0, color: 'var(--success)' },
+    { name: 'Medium', value: urgencyCounts['Medium'] || 0, color: 'var(--warning)' },
+    { name: 'High', value: urgencyCounts['High'] || 0, color: 'var(--danger)' }
   ].filter(d => d.value > 0);
+
+  const urgencyColors = ['#6ec87a', '#d4a94e', '#d46a6a'];
 
   const completedVisits = appointments.filter(a => a.visitNote || a.status === 'COMPLETED');
   const activePrescriptions = completedVisits.flatMap(a => {
@@ -46,63 +43,60 @@ export default function PatientMedicalHistory() {
   });
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
+    <div className="page-layout">
       <Sidebar />
-      <main style={{ flex: 1, padding: 40, maxWidth: 1100 }}>
-        <h1 style={{ fontSize: 28, color: 'var(--text-primary)', marginBottom: 8 }}>
-          Medical History & Prescriptions Timeline
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 32 }}>
-          Comprehensive record of past consultations, clinical diagnoses, active medication prescriptions, and downloadable PDFs.
-        </p>
+      <main className="page-main" style={{ maxWidth: 1050 }}>
+        <div className="page-header">
+          <h1>Medical History</h1>
+          <p>Past consultations, prescriptions, and clinical timeline.</p>
+        </div>
 
         {loading ? (
-          <div style={{ color: 'var(--text-muted)' }}>Loading medical records...</div>
+          <div className="loading-text">Loading medical records...</div>
         ) : appointments.length === 0 ? (
-          <div className="glass-card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-            No past medical visits recorded yet.
+          <div className="card empty-state">
+            <Activity size={36} />
+            <h3>No medical history</h3>
+            <p>No past visits recorded yet.</p>
           </div>
         ) : (
           <>
-            {/* Visual Analytics & Data Overview */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, marginBottom: 40 }}>
-              <div className="glass-card" style={{ padding: 24 }}>
-                <h3 style={{ fontSize: 16, color: 'var(--text-primary)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Activity size={18} style={{ color: 'var(--accent-violet)' }} /> Triage Urgency Distribution
+            <div className="grid-2 mb-32">
+              <div className="card" style={{ padding: 20 }}>
+                <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                  <Activity size={15} style={{ color: 'var(--text-muted)' }} /> Urgency Distribution
                 </h3>
-                <div style={{ width: '100%', height: 180 }}>
+                <div style={{ width: '100%', height: 160 }}>
                   <ResponsiveContainer>
                     <PieChart>
-                      <Pie data={urgencyData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={4}>
+                      <Pie data={urgencyData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={62} paddingAngle={3}>
                         {urgencyData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                          <Cell key={`cell-${index}`} fill={urgencyColors[index % urgencyColors.length]} />
                         ))}
                       </Pie>
-                      <Tooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-light)', borderRadius: 8, color: '#fff' }} />
+                      <Tooltip contentStyle={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', fontSize: 12 }} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'center', gap: 16, fontSize: 12 }}>
-                  <span style={{ color: '#10b981' }}>● Low</span>
-                  <span style={{ color: '#f59e0b' }}>● Medium</span>
-                  <span style={{ color: '#f43f5e' }}>● High</span>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 14, fontSize: 11, color: 'var(--text-secondary)' }}>
+                  <span><span style={{ color: '#6ec87a' }}>●</span> Low</span>
+                  <span><span style={{ color: '#d4a94e' }}>●</span> Medium</span>
+                  <span><span style={{ color: '#d46a6a' }}>●</span> High</span>
                 </div>
               </div>
 
-              <div className="glass-card" style={{ padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                <div>
-                  <h3 style={{ fontSize: 16, color: 'var(--text-primary)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Pill size={18} style={{ color: 'var(--accent-emerald)' }} /> Active Prescriptions ({activePrescriptions.length})
-                  </h3>
-                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>Current medications prescribed by your attending physicians.</p>
-                </div>
-                <div style={{ maxHeight: 150, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column' }}>
+                <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Pill size={15} style={{ color: 'var(--text-muted)' }} /> Active Prescriptions ({activePrescriptions.length})
+                </h3>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>Current medications from your physicians.</p>
+                <div style={{ flex: 1, maxHeight: 140, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {activePrescriptions.length === 0 ? (
                     <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>No active medications</span>
                   ) : (
-                    activePrescriptions.slice(0, 4).map((med, idx) => (
-                      <div key={idx} style={{ background: 'var(--bg-surface)', padding: '8px 12px', borderRadius: 'var(--radius-sm)', fontSize: 12, display: 'flex', justifyContent: 'space-between' }}>
-                        <strong style={{ color: 'var(--accent-emerald)' }}>{med.drug} ({med.dose})</strong>
+                    activePrescriptions.slice(0, 5).map((med, idx) => (
+                      <div key={idx} className="card-flat" style={{ padding: '6px 10px', fontSize: 12, display: 'flex', justifyContent: 'space-between' }}>
+                        <strong style={{ color: 'var(--success)' }}>{med.drug} ({med.dose})</strong>
                         <span style={{ color: 'var(--text-muted)' }}>{med.frequency}</span>
                       </div>
                     ))
@@ -111,9 +105,8 @@ export default function PatientMedicalHistory() {
               </div>
             </div>
 
-            {/* Medical History Timeline */}
-            <h2 style={{ fontSize: 20, color: 'var(--text-primary)', marginBottom: 20 }}>Clinical Consultation History Timeline</h2>
-            <div style={{ position: 'relative', paddingLeft: 28, borderLeft: '2px dashed var(--accent-violet)' }}>
+            <h2 className="section-title mb-16">Consultation Timeline</h2>
+            <div className="timeline">
               {appointments.map((appt, idx) => {
                 const doctorName = appt.doctor?.user?.name || 'Doctor';
                 const hasVisitNote = !!appt.visitNote;
@@ -121,75 +114,56 @@ export default function PatientMedicalHistory() {
                 return (
                   <motion.div
                     key={appt.id}
-                    initial={{ opacity: 0, x: -20 }}
+                    initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.05 }}
-                    style={{ position: 'relative', marginBottom: 32 }}
+                    transition={{ delay: idx * 0.04 }}
+                    className="timeline-item"
                   >
-                    {/* Timeline Node Icon */}
-                    <div style={{
-                      position: 'absolute',
-                      left: -41,
-                      top: 4,
-                      width: 24,
-                      height: 24,
-                      borderRadius: '50%',
-                      background: hasVisitNote ? 'var(--accent-emerald)' : 'var(--accent-violet)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#fff',
-                      boxShadow: '0 0 0 4px var(--bg-base)'
-                    }}>
-                      <CheckCircle2 size={14} />
-                    </div>
+                    <div className={`timeline-dot ${hasVisitNote ? 'completed' : ''}`} />
 
-                    <div className="glass-card" style={{ padding: 24 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                    <div className="card" style={{ padding: 20 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                         <div>
-                          <div style={{ fontSize: 12, color: 'var(--accent-cyan)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>
+                          <div style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 500, textTransform: 'uppercase', marginBottom: 4 }}>
                             {new Date(appt.startsAt).toLocaleDateString('en-IN', { dateStyle: 'full' })}
                           </div>
-                          <h3 style={{ fontSize: 18, color: 'var(--text-primary)', margin: 0 }}>
-                            {doctorName} <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 400 }}>({appt.doctor?.specialisation})</span>
-                          </h3>
+                          <div style={{ fontWeight: 500 }}>
+                            {doctorName} <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>({appt.doctor?.specialisation})</span>
+                          </div>
                         </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           {appt.symptomForm?.urgency && <UrgencyBadge level={appt.symptomForm.urgency} />}
                           {hasVisitNote && (
-                            <button
-                              onClick={() => generatePrescriptionPdf(appt, 'PATIENT')}
-                              className="btn-secondary"
-                              style={{ fontSize: 12, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}
-                            >
-                              <Download size={14} /> Download PDF
+                            <button onClick={() => generatePrescriptionPdf(appt, 'PATIENT')} className="btn btn-ghost btn-sm">
+                              <Download size={13} /> PDF
                             </button>
                           )}
                         </div>
                       </div>
 
-                      {/* Symptoms & Diagnosis */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, background: 'var(--bg-surface)', padding: 16, borderRadius: 'var(--radius-md)', marginBottom: 16 }}>
+                      <div className="form-row form-row-2" style={{ background: 'var(--bg-inset)', padding: 12, borderRadius: 'var(--radius-md)', marginBottom: 12 }}>
                         <div>
-                          <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Reported Symptoms</span>
-                          <p style={{ fontSize: 13, color: 'var(--text-primary)', margin: 0 }}>{appt.symptomForm?.chiefComplaint || appt.symptomForm?.rawSymptoms || 'General consultation'}</p>
+                          <div className="detail-label">Symptoms</div>
+                          <p style={{ fontSize: 12, color: 'var(--text-primary)', margin: 0 }}>
+                            {cleanText(appt.symptomForm?.chiefComplaint || appt.symptomForm?.rawSymptoms) || 'General consultation'}
+                          </p>
                         </div>
                         <div>
-                          <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Doctor Clinical Notes</span>
-                          <p style={{ fontSize: 13, color: 'var(--text-primary)', margin: 0 }}>{appt.visitNote?.clinicalNotes || 'Consultation ongoing or notes pending'}</p>
+                          <div className="detail-label">Clinical Notes</div>
+                          <p style={{ fontSize: 12, color: 'var(--text-primary)', margin: 0 }}>
+                            {cleanText(appt.visitNote?.clinicalNotes) || 'Pending'}
+                          </p>
                         </div>
                       </div>
 
-                      {/* Prescriptions Table */}
                       {hasVisitNote && Array.isArray(appt.visitNote.prescription) && appt.visitNote.prescription.length > 0 && (
                         <div>
-                          <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 8, fontWeight: 600 }}>Rx - Prescribed Medications</span>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                          <div className="detail-label mb-4">Medications</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                             {appt.visitNote.prescription.map((m, i) => (
-                              <div>
-                                <strong>{m.drug}</strong> • {m.dose} ({m.frequency})
-                              </div>
+                              <span key={i} className="badge badge-success" style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0 }}>
+                                {m.drug} · {m.dose}
+                              </span>
                             ))}
                           </div>
                         </div>

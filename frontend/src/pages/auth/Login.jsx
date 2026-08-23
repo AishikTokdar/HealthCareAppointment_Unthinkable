@@ -21,6 +21,7 @@ export default function Login() {
 
     try {
       const res = await authApi.login({ email, password });
+      sessionStorage.setItem('loginTimestamp', String(Date.now()));
       login(res.data.token, res.data.user);
       const role = res.data.user.role;
       if (role === 'PATIENT') navigate('/patient/dashboard');
@@ -34,63 +35,31 @@ export default function Login() {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'var(--bg-base)',
-      padding: 24
-    }}>
+    <div className="auth-page">
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="glass-card"
-        style={{
-          width: '100%',
-          maxWidth: 440,
-          padding: 40
-        }}
+        transition={{ duration: 0.3 }}
+        className="card auth-card"
       >
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{
-            width: 48,
-            height: 48,
-            borderRadius: 14,
-            background: 'linear-gradient(135deg, var(--accent-violet) 0%, var(--accent-cyan) 100%)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            marginBottom: 16
-          }}>
-            <HeartPulse size={28} />
+        <div className="auth-header">
+          <div className="auth-logo">
+            <HeartPulse size={22} />
           </div>
-          <h1 style={{ fontSize: 24, color: 'var(--text-primary)', marginBottom: 8 }}>Welcome back</h1>
-          <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Log in to access your healthcare portal</p>
+          <h1>Sign in</h1>
+          <p>Access your healthcare portal</p>
         </div>
 
         {error && (
-          <div style={{
-            background: 'rgba(244, 63, 94, 0.15)',
-            border: '1px solid rgba(244, 63, 94, 0.3)',
-            color: 'var(--accent-rose)',
-            padding: '12px 16px',
-            borderRadius: 'var(--radius-md)',
-            marginBottom: 20,
-            fontSize: 14
-          }}>
-            {error}
-          </div>
+          <div className="alert alert-danger mb-16">{error}</div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>Email Address</label>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="form-group">
+            <label className="label">Email Address</label>
             <input
               type="email"
-              className="input-field"
+              className="input"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@example.com"
@@ -98,11 +67,11 @@ export default function Login() {
             />
           </div>
 
-          <div>
-            <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>Password</label>
+          <div className="form-group">
+            <label className="label">Password</label>
             <input
               type="password"
-              className="input-field"
+              className="input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -112,19 +81,16 @@ export default function Login() {
 
           <button
             type="submit"
-            className="btn-primary"
+            className="btn btn-accent btn-full btn-lg"
             disabled={submitting}
-            style={{ marginTop: 8, width: '100%' }}
+            style={{ marginTop: 6 }}
           >
-            {submitting ? 'Authenticating...' : <>Sign In <ArrowRight size={16} /></>}
+            {submitting ? 'Signing in...' : <>Sign In <ArrowRight size={15} /></>}
           </button>
         </form>
 
-        <div style={{ marginTop: 24, textAlign: 'center', fontSize: 14, color: 'var(--text-secondary)' }}>
-          Don't have an account?{' '}
-          <Link to="/register" style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>
-            Register here
-          </Link>
+        <div className="auth-footer">
+          Don't have an account? <Link to="/register">Create one</Link>
         </div>
       </motion.div>
     </div>

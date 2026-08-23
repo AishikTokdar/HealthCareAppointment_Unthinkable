@@ -2,7 +2,7 @@ const prisma = require('../../config/db');
 const { generatePreVisitSummary } = require('../../services/llm');
 const { createCalendarEvent, deleteCalendarEvent } = require('../../services/calendar');
 
-const HOLD_DURATION_MS = 2 * 60 * 1000;
+const HOLD_DURATION_MS = 10 * 60 * 1000;
 const MAX_ACTIVE_HOLDS = 3;
 const MAX_ADVANCE_DAYS = 30;
 
@@ -64,36 +64,52 @@ async function holdSlot(patientId, doctorId, startsAtIso) {
   const holdExpiresAt = new Date(now.getTime() + HOLD_DURATION_MS);
 
   const result = await prisma.$transaction(async (tx) => {
-    const conflictingConfirms = await tx.appointment.findFirst({
+    const existingAppt = await tx.appointment.findFirst({
       where: {
         doctorId,
-        startsAt,
-        status: 'CONFIRMED'
+        startsAt
       }
     });
 
-    if (conflictingConfirms) {
-      const err = new Error('Slot already booked');
-      err.statusCode = 409;
-      throw err;
-    }
-
-    const activePending = await tx.appointment.findFirst({
-      where: {
-        doctorId,
-        startsAt,
-        status: 'PENDING',
-        holdExpiresAt: { gt: now }
+    if (existingAppt) {
+      if (existingAppt.status === 'CONFIRMED') {
+        const err = new Error('Slot already booked');
+        err.statusCode = 409;
+        throw err;
       }
-    });
 
-    if (activePending) {
-      const err = new Error('Slot currently reserved by another patient');
-      err.statusCode = 409;
-      throw err;
+      if (existingAppt.status === 'PENDING' && existingAppt.holdExpiresAt && new Date(existingAppt.holdExpiresAt) > now) {
+        if (existingAppt.patientId === patientId) {
+          return tx.appointment.update({
+            where: { id: existingAppt.id },
+            data: {
+              holdExpiresAt,
+              endsAt
+            }
+          });
+        }
+        const err = new Error('Slot currently reserved by another patient');
+        err.statusCode = 409;
+        throw err;
+      }
+
+      return tx.appointment.update({
+        where: { id: existingAppt.id },
+        data: {
+          patientId,
+          status: 'PENDING',
+          holdExpiresAt,
+          endsAt,
+          chatStatus: 'NOT_STARTED',
+          patientLastSeen: null,
+          doctorLastSeen: null,
+          gcalEventId: null,
+          gcalDoctorEventId: null
+        }
+      });
     }
 
-    const appt = await tx.appointment.create({
+    return tx.appointment.create({
       data: {
         patientId,
         doctorId,
@@ -103,8 +119,6 @@ async function holdSlot(patientId, doctorId, startsAtIso) {
         holdExpiresAt
       }
     });
-
-    return appt;
   });
 
   return { holdToken: result.id, expiresAt: result.holdExpiresAt };
@@ -130,13 +144,13 @@ async function confirmBooking(patientId, holdToken, symptoms) {
   }
 
   if (appointment.status !== 'PENDING') {
-    const err = new Error('Appointment is not in pending state');
-    err.statusCode = 400;
+    const err = new Error('Slot reservation timer expired or was cancelled. Please select a time slot again.');
+    err.statusCode = 410;
     throw err;
   }
 
   if (!appointment.holdExpiresAt || new Date(appointment.holdExpiresAt) < now) {
-    const err = new Error('Hold has expired');
+    const err = new Error('Slot reservation timer expired. Please select a time slot again.');
     err.statusCode = 410;
     throw err;
   }
@@ -166,9 +180,18 @@ async function confirmBooking(patientId, holdToken, symptoms) {
   setImmediate(async () => {
     try {
       const llmRes = await generatePreVisitSummary(symptoms);
-      await prisma.symptomForm.create({
-        data: {
+      await prisma.symptomForm.upsert({
+        where: { appointmentId: holdToken },
+        create: {
           appointmentId: holdToken,
+          rawSymptoms: symptoms,
+          urgency: llmRes.data?.urgency || 'Medium',
+          chiefComplaint: llmRes.data?.chiefComplaint || '',
+          suggestedQs: llmRes.data?.suggestedQuestions || [],
+          llmRawOutput: llmRes.raw,
+          llmStatus: llmRes.status
+        },
+        update: {
           rawSymptoms: symptoms,
           urgency: llmRes.data?.urgency || 'Medium',
           chiefComplaint: llmRes.data?.chiefComplaint || '',
@@ -288,8 +311,8 @@ async function rescheduleAppointment(user, appointmentId, newStartsAtIso) {
     throw err;
   }
 
-  if (appt.status === 'COMPLETED' || appt.status === 'CANCELLED') {
-    const err = new Error(`Cannot reschedule an appointment with status ${appt.status}`);
+  if (appt.status !== 'CONFIRMED') {
+    const err = new Error(`Only confirmed appointments can be rescheduled. Current status: ${appt.status}`);
     err.statusCode = 400;
     throw err;
   }
@@ -317,6 +340,15 @@ async function rescheduleAppointment(user, appointmentId, newStartsAtIso) {
     err.statusCode = 409;
     throw err;
   }
+
+  await prisma.appointment.deleteMany({
+    where: {
+      doctorId: appt.doctorId,
+      startsAt: newStartsAt,
+      status: 'CANCELLED',
+      id: { not: appointmentId }
+    }
+  });
 
   const durationMs = appt.doctor.slotDuration * 60 * 1000;
   const newEndsAt = new Date(newStartsAt.getTime() + durationMs);
@@ -424,6 +456,12 @@ async function startChat(doctorUserId, appointmentId) {
     throw err;
   }
 
+  if (appt.status !== 'CONFIRMED') {
+    const err = new Error('Only confirmed appointments can initiate live chat');
+    err.statusCode = 400;
+    throw err;
+  }
+
   return prisma.appointment.update({
     where: { id: appointmentId },
     data: { chatStatus: 'ACTIVE' }
@@ -525,6 +563,12 @@ async function sendChatMessage(user, appointmentId, messageText) {
   if (user.role === 'DOCTOR' && appt.doctor.userId !== user.userId) {
     const err = new Error('Access denied');
     err.statusCode = 403;
+    throw err;
+  }
+
+  if (appt.chatStatus !== 'ACTIVE') {
+    const err = new Error('Chat session is not active');
+    err.statusCode = 400;
     throw err;
   }
 

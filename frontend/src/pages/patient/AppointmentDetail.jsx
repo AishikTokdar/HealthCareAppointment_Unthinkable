@@ -7,7 +7,7 @@ import UrgencyBadge from '../../components/ui/UrgencyBadge';
 import Modal from '../../components/ui/Modal';
 import { appointmentsApi } from '../../api/appointments.api';
 import { generatePrescriptionPdf } from '../../utils/generatePrescriptionPdf';
-import { ArrowLeft, User, Clock, Pill, AlertCircle, Send, MessageSquare, Circle, XCircle, Download, FileText } from 'lucide-react';
+import { ArrowLeft, User, Clock, Pill, AlertCircle, Send, MessageSquare, XCircle, Download } from 'lucide-react';
 
 export default function PatientAppointmentDetail() {
   const { id } = useParams();
@@ -20,7 +20,6 @@ export default function PatientAppointmentDetail() {
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
 
-  // Real-time Chat & Presence State
   const [chatStatus, setChatStatus] = useState('NOT_STARTED');
   const [isDoctorOnline, setIsDoctorOnline] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -28,9 +27,9 @@ export default function PatientAppointmentDetail() {
   const [sendingMsg, setSendingMsg] = useState(false);
   const [closingChat, setClosingChat] = useState(false);
 
-  useEffect(() => {
-    fetchDetail();
-  }, [id]);
+  const [fetchError, setFetchError] = useState('');
+
+  useEffect(() => { fetchDetail(); }, [id]);
 
   useEffect(() => {
     let intervalId;
@@ -41,15 +40,25 @@ export default function PatientAppointmentDetail() {
     return () => clearInterval(intervalId);
   }, [appointment]);
 
-  const fetchDetail = () => {
+  const fetchDetail = async () => {
     setLoading(true);
-    appointmentsApi.getDetail(id)
-      .then(res => {
-        setAppointment(res.data);
-        if (res.data.chatStatus) setChatStatus(res.data.chatStatus);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    setFetchError('');
+    try {
+      const detailRes = await appointmentsApi.getDetail(id);
+      setAppointment(detailRes.data);
+      if (detailRes.data.chatStatus) setChatStatus(detailRes.data.chatStatus);
+      try {
+        const msgRes = await appointmentsApi.getChatMessages(id);
+        setMessages(msgRes.data || []);
+      } catch {
+        setMessages([]);
+      }
+    } catch (err) {
+      console.error(err);
+      setFetchError(err.response?.data?.error || 'Appointment record not found or access denied.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const runHeartbeat = () => {
@@ -66,138 +75,116 @@ export default function PatientAppointmentDetail() {
     e.preventDefault();
     if (!newMessage.trim()) return;
     setSendingMsg(true);
-    try {
-      await appointmentsApi.sendMessage(id, newMessage);
-      setNewMessage('');
-      runHeartbeat();
-    } catch (err) {
-      alert('Failed to send message');
-    } finally {
-      setSendingMsg(false);
-    }
+    try { await appointmentsApi.sendMessage(id, newMessage); setNewMessage(''); runHeartbeat(); }
+    catch (err) { alert('Failed to send message'); }
+    finally { setSendingMsg(false); }
   };
 
   const handleCloseChat = async () => {
-    if (!window.confirm('Are you sure you want to end this chat session?')) return;
+    if (!window.confirm('End this chat session?')) return;
     setClosingChat(true);
-    try {
-      await appointmentsApi.closeChat(id);
-      setChatStatus('CLOSED');
-      runHeartbeat();
-    } catch (err) {
-      alert('Failed to close chat');
-    } finally {
-      setClosingChat(false);
-    }
+    try { await appointmentsApi.closeChat(id); setChatStatus('CLOSED'); runHeartbeat(); }
+    catch (err) { alert('Failed to close chat'); }
+    finally { setClosingChat(false); }
   };
 
   const handleCancel = async () => {
     setCancelling(true);
-    try {
-      await appointmentsApi.cancel(id, cancelReason);
-      setShowCancelModal(false);
-      fetchDetail();
-    } catch (err) {
-      alert('Failed to cancel appointment');
-    } finally {
-      setCancelling(false);
-    }
+    try { await appointmentsApi.cancel(id, cancelReason); setShowCancelModal(false); fetchDetail(); }
+    catch (err) { alert('Failed to cancel appointment'); }
+    finally { setCancelling(false); }
   };
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
+      <div className="page-layout">
         <Sidebar />
-        <main style={{ flex: 1, padding: 40, color: 'var(--text-muted)' }}>Loading appointment details...</main>
+        <main className="page-main"><div className="loading-text">Loading appointment details...</div></main>
       </div>
     );
   }
 
-  if (!appointment) return null;
+  if (fetchError || !appointment) {
+    return (
+      <div className="page-layout">
+        <Sidebar />
+        <main className="page-main" style={{ maxWidth: 800 }}>
+          <button onClick={() => navigate('/patient/appointments')} className="back-link">
+            <ArrowLeft size={14} /> Back to appointments
+          </button>
+          <div className="card" style={{ padding: 40, textAlign: 'center', borderTop: '3px solid var(--danger)' }}>
+            <AlertCircle size={36} style={{ color: 'var(--danger)', marginBottom: 16 }} />
+            <h3 style={{ fontSize: 18, color: 'var(--text-primary)', marginBottom: 8 }}>Appointment Record Unavailable</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 24 }}>
+              {fetchError || 'This appointment record could not be found or you do not have permission to view it.'}
+            </p>
+            <button onClick={() => navigate('/patient/dashboard')} className="btn btn-accent">
+              Return to Dashboard
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
+    <div className="page-layout">
       <Sidebar />
-      <main style={{ flex: 1, padding: 40, maxWidth: 1000 }}>
-        <button onClick={() => navigate('/patient/appointments')} style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20 }}>
-          <ArrowLeft size={16} /> Back to Appointments
+      <main className="page-main" style={{ maxWidth: 960 }}>
+        <button onClick={() => navigate('/patient/appointments')} className="back-link">
+          <ArrowLeft size={14} /> Back to appointments
         </button>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-          <div>
-            <h1 style={{ fontSize: 28, color: 'var(--text-primary)', marginBottom: 4 }}>Appointment Overview</h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Reference ID: {appointment.id}</p>
-          </div>
-          <div style={{ display: 'flex', gap: 12 }}>
-            {appointment.visitNote && (
-              <button
-                onClick={() => generatePrescriptionPdf(appointment, 'PATIENT')}
-                className="btn-primary"
-                style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-              >
-                <Download size={16} /> Download Prescription PDF
-              </button>
-            )}
-            {appointment.status === 'CONFIRMED' && (
-              <button onClick={() => setShowCancelModal(true)} className="btn-danger">
-                Cancel Booking
-              </button>
-            )}
+        <div className="page-header">
+          <div className="page-header-row">
+            <div>
+              <h1>Appointment Details</h1>
+              <p style={{ fontFamily: "'SF Mono', monospace", fontSize: 11 }}>Ref: {appointment.id}</p>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {appointment.visitNote && (
+                <button onClick={() => generatePrescriptionPdf(appointment, 'PATIENT')} className="btn btn-ghost btn-sm">
+                  <Download size={14} /> Download PDF
+                </button>
+              )}
+              {appointment.status === 'CONFIRMED' && (
+                <button onClick={() => setShowCancelModal(true)} className="btn btn-danger btn-sm">Cancel</button>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="glass-card" style={{ padding: 28, marginBottom: 32 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-              <div style={{
-                width: 56,
-                height: 56,
-                borderRadius: 16,
-                background: 'var(--bg-elevated)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--accent-violet)'
-              }}>
-                <User size={30} />
-              </div>
+        <div className="card mb-24" style={{ padding: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div className="avatar avatar-lg"><User size={24} /></div>
               <div>
-                <h2 style={{ fontSize: 20, color: 'var(--text-primary)' }}>{appointment.doctor?.user?.name}</h2>
-                <p style={{ fontSize: 14, color: 'var(--accent-cyan)' }}>{appointment.doctor?.specialisation}</p>
+                <div style={{ fontWeight: 500, fontSize: 15 }}>{appointment.doctor?.user?.name}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{appointment.doctor?.specialisation}</div>
               </div>
             </div>
-
             {appointment.status === 'CONFIRMED' && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '8px 14px',
-                borderRadius: 20,
-                fontSize: 13,
-                fontWeight: 600,
-                background: isDoctorOnline ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.15)',
-                color: isDoctorOnline ? 'var(--accent-emerald)' : 'var(--text-muted)',
-                border: `1px solid ${isDoctorOnline ? 'rgba(16, 185, 129, 0.3)' : 'var(--border-light)'}`
-              }}>
-                <Circle size={10} style={{ fill: isDoctorOnline ? 'var(--accent-emerald)' : 'var(--text-muted)' }} />
-                Doctor Status: {isDoctorOnline ? 'Online' : 'Offline'}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+                <span className={`online-dot ${isDoctorOnline ? 'online' : 'offline'}`} />
+                {isDoctorOnline ? 'Online' : 'Offline'}
               </div>
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20, paddingTop: 20, borderTop: '1px solid var(--border-light)' }}>
+          <div className="detail-grid">
             <div>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Date & Time</span>
-              <strong style={{ fontSize: 14, color: 'var(--text-primary)' }}>{new Date(appointment.startsAt).toLocaleString('en-IN')}</strong>
+              <div className="detail-label">Date & Time</div>
+              <div className="detail-value">{new Date(appointment.startsAt).toLocaleString('en-IN')}</div>
             </div>
             <div>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Status</span>
-              <strong style={{ fontSize: 14, color: appointment.status === 'CONFIRMED' ? 'var(--accent-emerald)' : appointment.status === 'COMPLETED' ? 'var(--accent-cyan)' : 'var(--text-secondary)' }}>{appointment.status}</strong>
+              <div className="detail-label">Status</div>
+              <div className="detail-value" style={{ color: appointment.status === 'CONFIRMED' ? 'var(--success)' : appointment.status === 'COMPLETED' ? 'var(--accent)' : 'var(--text-secondary)' }}>
+                {appointment.status}
+              </div>
             </div>
             {appointment.symptomForm?.urgency && (
               <div>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Urgency Level</span>
+                <div className="detail-label">Urgency</div>
                 <UrgencyBadge level={appointment.symptomForm.urgency} />
               </div>
             )}
@@ -205,86 +192,66 @@ export default function PatientAppointmentDetail() {
         </div>
 
         {appointment.symptomForm && (
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="glass-card" style={{ padding: 28, marginBottom: 32 }}>
-            <h3 style={{ fontSize: 18, color: 'var(--text-primary)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <AlertCircle size={20} style={{ color: 'var(--accent-cyan)' }} /> Submitted Symptoms Summary
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="card mb-24" style={{ padding: 20 }}>
+            <h3 className="section-title mb-12" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <AlertCircle size={16} style={{ color: 'var(--accent)' }} /> Symptoms
             </h3>
             <div>
-              <h4 style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Chief Complaint / Reported Symptoms</h4>
-              <p style={{ fontSize: 15, color: 'var(--text-primary)', lineHeight: 1.6 }}>{appointment.symptomForm.chiefComplaint || appointment.symptomForm.rawSymptoms}</p>
+              <div className="detail-label">Reported</div>
+              <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
+                {appointment.symptomForm.chiefComplaint || appointment.symptomForm.rawSymptoms}
+              </p>
             </div>
           </motion.div>
         )}
 
-        <div className="glass-card" style={{ padding: 28, marginBottom: 32 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <h3 style={{ fontSize: 18, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <MessageSquare size={20} style={{ color: 'var(--accent-violet)' }} /> Doctor Consultation Chat
+        <div className="card mb-24" style={{ padding: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h3 className="section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <MessageSquare size={16} style={{ color: 'var(--accent)' }} /> Chat
             </h3>
-
             {chatStatus === 'ACTIVE' && (
-              <button onClick={handleCloseChat} disabled={closingChat} className="btn-secondary" style={{ padding: '6px 14px', fontSize: 13, borderColor: 'var(--accent-rose)', color: 'var(--accent-rose)' }}>
-                <XCircle size={14} /> {closingChat ? 'Closing...' : 'Close Chat'}
+              <button onClick={handleCloseChat} disabled={closingChat} className="btn btn-danger btn-sm">
+                <XCircle size={13} /> {closingChat ? 'Closing...' : 'End Chat'}
               </button>
             )}
           </div>
 
-          {chatStatus === 'NOT_STARTED' ? (
-            <div style={{ background: 'var(--bg-surface)', padding: 24, textAlign: 'center', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-light)' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: 14, margin: 0 }}>
-                Doctor is currently reviewing your symptom submission. Live chat consultation will start as soon as the doctor initiates the session.
+          {chatStatus === 'NOT_STARTED' && messages.length === 0 ? (
+            <div className="card-flat" style={{ padding: 20, textAlign: 'center' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 13, margin: 0 }}>
+                Chat will start once the doctor initiates the session.
               </p>
-            </div>
-          ) : chatStatus === 'CLOSED' ? (
-            <div style={{ background: 'var(--bg-surface)', padding: 16, textAlign: 'center', borderRadius: 'var(--radius-md)', color: 'var(--text-muted)', fontSize: 14 }}>
-              Consultation chat session has been closed.
             </div>
           ) : (
             <div>
-              <div style={{ maxHeight: 300, overflowY: 'auto', marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {chatStatus === 'CLOSED' && (
+                <div className="card-flat mb-12" style={{ padding: '8px 14px', fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
+                  Chat session ended. Message transcript is preserved below.
+                </div>
+              )}
+              <div className="chat-container">
                 {messages.length === 0 ? (
-                  <div style={{ color: 'var(--text-muted)', fontSize: 13, fontStyle: 'italic', textAlign: 'center', padding: 16 }}>
-                    Chat consultation active. Send your message to the doctor below.
+                  <div style={{ color: 'var(--text-muted)', fontSize: 12, textAlign: 'center', padding: 16, fontStyle: 'italic' }}>
+                    No messages exchanged.
                   </div>
                 ) : (
                   messages.map(m => {
                     const isMe = m.senderId === user?.id;
                     return (
-                      <div key={m.id} style={{
-                        alignSelf: isMe ? 'flex-end' : 'flex-start',
-                        maxWidth: '80%',
-                        background: isMe ? 'var(--accent-violet)' : 'var(--bg-surface)',
-                        color: isMe ? '#fff' : 'var(--text-primary)',
-                        padding: '12px 16px',
-                        borderRadius: 'var(--radius-md)',
-                        border: isMe ? 'none' : '1px solid var(--border-light)'
-                      }}>
-                        <div style={{ fontSize: 11, color: isMe ? 'rgba(255,255,255,0.8)' : 'var(--accent-cyan)', fontWeight: 600, marginBottom: 4 }}>
-                          {m.sender?.name} ({m.sender?.role})
-                        </div>
-                        <p style={{ fontSize: 14, margin: 0, lineHeight: 1.5 }}>{m.message}</p>
-                        <span style={{ fontSize: 10, display: 'block', textAlign: 'right', marginTop: 6, color: isMe ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)' }}>
-                          {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
+                      <div key={m.id} className={`chat-bubble ${isMe ? 'sent' : 'received'}`}>
+                        <div className="chat-sender">{m.sender?.name}</div>
+                        <p style={{ margin: 0 }}>{m.message}</p>
+                        <span className="chat-time">{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                     );
                   })
                 )}
               </div>
-
-              {appointment.status === 'CONFIRMED' && (
-                <form onSubmit={handleSendMessage} style={{ display: 'flex', gap: 10 }}>
-                  <input
-                    type="text"
-                    className="input-field"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Type your message to the doctor..."
-                    style={{ flex: 1 }}
-                  />
-                  <button type="submit" disabled={sendingMsg} className="btn-primary" style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Send size={16} /> Send
-                  </button>
+              {chatStatus === 'ACTIVE' && appointment.status === 'CONFIRMED' && (
+                <form onSubmit={handleSendMessage} className="chat-input-row" style={{ marginTop: 12 }}>
+                  <input type="text" className="input" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type a message..." />
+                  <button type="submit" disabled={sendingMsg} className="btn btn-accent"><Send size={14} /></button>
                 </form>
               )}
             </div>
@@ -292,34 +259,31 @@ export default function PatientAppointmentDetail() {
         </div>
 
         {appointment.visitNote && (
-          <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="glass-card" style={{ padding: 28 }}>
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ padding: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ fontSize: 18, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Pill size={20} style={{ color: 'var(--accent-emerald)' }} /> Post-Visit Summary & Prescription
+              <h3 className="section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Pill size={16} style={{ color: 'var(--success)' }} /> Visit Summary & Prescription
               </h3>
-              <button
-                onClick={() => generatePrescriptionPdf(appointment, 'PATIENT')}
-                className="btn-secondary"
-                style={{ fontSize: 13, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}
-              >
-                <Download size={14} /> Download Official PDF
+              <button onClick={() => generatePrescriptionPdf(appointment, 'PATIENT')} className="btn btn-ghost btn-sm">
+                <Download size={13} /> PDF
               </button>
             </div>
 
-            <div style={{ marginBottom: 24 }}>
-              <h4 style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>Patient-Friendly Summary</h4>
-              <p style={{ fontSize: 15, color: 'var(--text-primary)', lineHeight: 1.6 }}>{appointment.visitNote.patientSummary || appointment.visitNote.clinicalNotes}</p>
+            <div className="mb-20">
+              <div className="detail-label">Summary</div>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                {appointment.visitNote.patientSummary || appointment.visitNote.clinicalNotes}
+              </p>
             </div>
 
             {Array.isArray(appointment.visitNote.prescription) && appointment.visitNote.prescription.length > 0 && (
               <div>
-                <h4 style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>Prescribed Medications</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                <div className="detail-label mb-8">Prescribed Medications</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {appointment.visitNote.prescription.map((med, idx) => (
-                    <div key={idx} style={{ padding: 16, background: 'var(--bg-surface)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
-                      <strong style={{ fontSize: 15, color: 'var(--accent-emerald)', display: 'block', marginBottom: 4 }}>{med.drug}</strong>
-                      <span style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'block' }}>Dose: {med.dose}</span>
-                      <span style={{ fontSize: 13, color: 'var(--text-muted)', display: 'block' }}>Frequency: {med.frequency}</span>
+                    <div key={idx} className="card-flat" style={{ padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong style={{ fontSize: 13, color: 'var(--success)' }}>{med.drug}</strong>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{med.dose} · {med.frequency}</span>
                     </div>
                   ))}
                 </div>
@@ -329,20 +293,13 @@ export default function PatientAppointmentDetail() {
         )}
 
         <Modal isOpen={showCancelModal} onClose={() => setShowCancelModal(false)} title="Cancel Appointment">
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 16 }}>
-            Are you sure you want to cancel your appointment with {appointment.doctor?.user?.name}?
+          <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 12 }}>
+            Cancel your appointment with {appointment.doctor?.user?.name}?
           </p>
-          <textarea
-            className="input-field"
-            rows={3}
-            value={cancelReason}
-            onChange={(e) => setCancelReason(e.target.value)}
-            placeholder="Reason for cancellation (optional)..."
-            style={{ marginBottom: 20 }}
-          />
-          <div style={{ display: 'flex', gap: 12 }}>
-            <button onClick={() => setShowCancelModal(false)} className="btn-secondary" style={{ flex: 1 }}>Keep Booking</button>
-            <button onClick={handleCancel} disabled={cancelling} className="btn-danger" style={{ flex: 1 }}>
+          <textarea className="input mb-16" rows={3} value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="Reason (optional)..." />
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => setShowCancelModal(false)} className="btn btn-ghost" style={{ flex: 1 }}>Keep</button>
+            <button onClick={handleCancel} disabled={cancelling} className="btn btn-danger" style={{ flex: 1 }}>
               {cancelling ? 'Cancelling...' : 'Confirm Cancel'}
             </button>
           </div>

@@ -2,14 +2,18 @@ const { geminiClient, groqClient } = require('../config/llm');
 
 const GEMINI_MODELS = [
   'gemini-3.6-flash',
-  'gemini-3.6-pro',
   'gemini-3.5-flash',
-  'gemini-3.5-pro',
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
   'gemini-2.5-flash',
-  'gemini-2.0-flash',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-pro',
+  'gemini-flash-latest',
   'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
   'gemini-1.5-pro',
-  'gemini-1.5-flash-latest'
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite-preview-02-05'
 ];
 const GROQ_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'gemma2-9b-it'];
 
@@ -142,23 +146,44 @@ Symptoms: ${symptoms}`;
 }
 
 async function generatePostVisitSummary(clinicalNotes, prescription) {
-  const promptText = `Convert these clinical notes into a patient-friendly summary in clean Indian English with medication schedule and follow-up steps: ${clinicalNotes}. Prescription info: ${JSON.stringify(prescription)}. Return valid JSON only with keys "patientSummary", "medicationSchedule", and "followUpSteps".`;
+  const promptText = `Convert these clinical notes into a patient-friendly summary in clean Indian English with medication schedule and follow-up steps. Do NOT use markdown asterisks (* or **). Use clean plain text bullet points (•) if needed. Clinical notes: ${clinicalNotes}. Prescription info: ${JSON.stringify(prescription)}. Return valid JSON only with keys "patientSummary", "medicationSchedule", and "followUpSteps".`;
 
-  const geminiRes = await callGemini(promptText);
-  if (geminiRes) return geminiRes;
+  let res = await callGemini(promptText);
+  if (!res) {
+    res = await callGroq(promptText);
+  }
 
-  const groqRes = await callGroq(promptText);
-  if (groqRes) return groqRes;
+  if (res && res.data) {
+    if (res.data.patientSummary) res.data.patientSummary = cleanMarkdownText(res.data.patientSummary);
+    if (Array.isArray(res.data.medicationSchedule)) {
+      res.data.medicationSchedule = res.data.medicationSchedule.map(cleanMarkdownText);
+    }
+    if (Array.isArray(res.data.followUpSteps)) {
+      res.data.followUpSteps = res.data.followUpSteps.map(cleanMarkdownText);
+    }
+    return res;
+  }
 
   return {
     status: 'FAILED',
     data: {
-      patientSummary: clinicalNotes,
+      patientSummary: cleanMarkdownText(clinicalNotes),
       medicationSchedule: Array.isArray(prescription) ? prescription.map(p => `${p.drug} - ${p.dose} (${p.frequency})`) : [],
       followUpSteps: ['Follow up with clinic if symptoms persist.']
     },
     raw: 'LLM service unavailable'
   };
+}
+
+function cleanMarkdownText(str) {
+  if (!str || typeof str !== 'string') return str;
+  return str
+    .replace(/^\s*[\*\-]\s+\*\*(.*?)\*\*/gm, '• $1')
+    .replace(/^\s*[\*\-]\s+/gm, '• ')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/^#+\s+/gm, '')
+    .trim();
 }
 
 async function refineDoctorMessage(draftText, symptoms, chiefComplaint) {
@@ -168,17 +193,18 @@ Refine the following rough doctor notes/draft into an empathetic, highly profess
 STRICT INSTRUCTIONS:
 1. Stick strictly to the patient's reported symptoms ("${symptoms || chiefComplaint || 'general health inquiry'}") and diagnosis/treatment guidance.
 2. Maintain an empathetic, authoritative medical tone.
-3. Do NOT include generic filler or meta comments. Output ONLY the polished message text.
+3. Do NOT use markdown symbols (such as *, **, #, etc.). Use clean plain text with bullet points (•) if listing items.
+4. Do NOT include generic filler or meta comments. Output ONLY the polished message text.
 
 Doctor's rough draft: ${draftText}`;
 
   const geminiRes = await callGeminiText(promptText);
-  if (geminiRes) return geminiRes;
+  if (geminiRes) return cleanMarkdownText(geminiRes);
 
   const groqRes = await callGroqText(promptText);
-  if (groqRes) return groqRes;
+  if (groqRes) return cleanMarkdownText(groqRes);
 
-  return draftText;
+  return cleanMarkdownText(draftText);
 }
 
 async function checkDrugSafety(prescriptionList, symptoms, chiefComplaint) {

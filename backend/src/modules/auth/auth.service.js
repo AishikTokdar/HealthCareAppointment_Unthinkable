@@ -120,6 +120,12 @@ async function login(email, password) {
     { expiresIn: '7d' }
   );
 
+  const notifications = await prisma.notification.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: 'desc' },
+    take: 10
+  });
+
   return {
     token,
     user: {
@@ -128,7 +134,9 @@ async function login(email, password) {
       name: user.name,
       role: user.role,
       phone: user.phone,
-      doctorProfile: user.doctorProfile
+      doctorProfile: user.doctorProfile,
+      hasGcalConnected: !!user.gcalTokens,
+      notifications
     }
   };
 }

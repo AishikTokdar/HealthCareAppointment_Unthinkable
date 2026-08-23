@@ -1,23 +1,42 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { AuthContext } from '../../context/AuthContext';
 import Sidebar from '../../components/layout/Sidebar';
 import UrgencyBadge from '../../components/ui/UrgencyBadge';
 import { appointmentsApi } from '../../api/appointments.api';
 import { calendarApi } from '../../api/calendar.api';
-import { Calendar, Plus, Clock, User, CheckCircle2, AlertCircle, Bell, ShieldAlert } from 'lucide-react';
+import { Calendar, Plus, Clock, User, CheckCircle2, AlertCircle, X } from 'lucide-react';
 
 export default function PatientDashboard() {
   const { user } = useContext(AuthContext);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showAlertBanner, setShowAlertBanner] = useState(true);
 
   useEffect(() => {
     appointmentsApi.getPatientAppointments()
       .then(res => setAppointments(res.data))
       .catch(console.error)
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    let loginTime = sessionStorage.getItem('loginTimestamp');
+    if (!loginTime) {
+      loginTime = String(Date.now());
+      sessionStorage.setItem('loginTimestamp', loginTime);
+    }
+    const elapsed = Date.now() - parseInt(loginTime, 10);
+    const maxAgeMs = 4 * 60 * 1000;
+
+    if (elapsed >= maxAgeMs) {
+      setShowAlertBanner(false);
+    } else {
+      const remaining = maxAgeMs - elapsed;
+      const timer = setTimeout(() => setShowAlertBanner(false), remaining);
+      return () => clearTimeout(timer);
+    }
   }, []);
 
   const upcoming = appointments.filter(a => a.status === 'CONFIRMED' || a.status === 'PENDING');
@@ -35,148 +54,107 @@ export default function PatientDashboard() {
   const leaveAlerts = user?.notifications?.filter(n => n.type === 'LEAVE_CONFLICT' || n.type === 'CANCELLATION') || [];
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
+    <div className="page-layout">
       <Sidebar />
-      <main style={{ flex: 1, padding: 40, maxWidth: 1200 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-          <div>
-            <h1 style={{ fontSize: 28, color: 'var(--text-primary)', marginBottom: 4 }}>
-              Namaste, <span className="gradient-text">{user?.name}</span>
-            </h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Welcome to your healthcare portal</p>
+      <main className="page-main">
+        <div className="page-header">
+          <div className="page-header-row">
+            <div>
+              <h1>Welcome back, {user?.name}</h1>
+              <p>Your healthcare overview</p>
+            </div>
+            <Link to="/patient/doctors" className="btn btn-accent">
+              <Plus size={15} /> New Appointment
+            </Link>
           </div>
-          <Link to="/patient/doctors" className="btn-primary">
-            <Plus size={18} /> Book New Visit
-          </Link>
         </div>
 
-        {leaveAlerts.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
-            {leaveAlerts.map((n) => (
-              <motion.div
-                key={n.id}
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="glass-card"
-                style={{
-                  padding: 16,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 16,
-                  borderLeft: '4px solid var(--accent-rose)',
-                  background: 'rgba(244, 63, 94, 0.08)'
-                }}
-              >
-                <ShieldAlert size={24} style={{ color: 'var(--accent-rose)', flexShrink: 0 }} />
-                <div>
-                  <h4 style={{ fontSize: 14, color: 'var(--text-primary)', marginBottom: 2 }}>
-                    Schedule Alert: Appointment Cancelled
-                  </h4>
-                  <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-                    {n.payload?.doctorName ? `${n.payload.doctorName} is unavailable on scheduled leave.` : 'An appointment was cancelled due to doctor schedule changes.'}{' '}
-                    Please select an alternative time slot.
-                  </p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
+        <AnimatePresence>
+          {showAlertBanner && leaveAlerts.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+              className="mb-20"
+              style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+            >
+              {leaveAlerts.map((n) => {
+                const doctorRaw = n.payload?.doctorName || '';
+                const cleanDoctorName = doctorRaw.replace(/^Dr\.?\s+/i, '');
+                return (
+                  <div key={n.id} className="alert alert-danger" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <strong style={{ display: 'block', marginBottom: 2 }}>Appointment Cancelled</strong>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                        {cleanDoctorName ? `${cleanDoctorName} is unavailable.` : 'An appointment was cancelled due to schedule changes.'} Please select an alternative time.
+                      </span>
+                    </div>
+                    <button onClick={() => setShowAlertBanner(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                      <X size={16} />
+                    </button>
+                  </div>
+                );
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {!user?.hasGcalConnected && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="glass-card"
-            style={{
-              padding: 20,
-              marginBottom: 32,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              borderLeft: '4px solid var(--accent-cyan)'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <Calendar size={28} style={{ color: 'var(--accent-cyan)' }} />
+          <div className="card mb-24" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderLeft: '3px solid var(--accent)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Calendar size={20} style={{ color: 'var(--accent)' }} />
               <div>
-                <h4 style={{ fontSize: 16, color: 'var(--text-primary)' }}>Sync with Google Calendar</h4>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Automatically add your medical appointments to your personal schedule.</p>
+                <div style={{ fontSize: 13, fontWeight: 500 }}>Sync with Google Calendar</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Add appointments to your schedule automatically.</div>
               </div>
             </div>
-            <button onClick={handleConnectCalendar} className="btn-secondary" style={{ fontSize: 13, padding: '8px 16px' }}>
-              Connect Now
-            </button>
-          </motion.div>
+            <button onClick={handleConnectCalendar} className="btn btn-ghost btn-sm">Connect</button>
+          </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20, marginBottom: 40 }}>
-          <div className="glass-card" style={{ padding: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'var(--accent-violet)', marginBottom: 8 }}>
-              <Calendar size={20} />
-              <span style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Upcoming</span>
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text-primary)' }}>{upcoming.length}</div>
+        <div className="grid-stats mb-32">
+          <div className="card stat-card">
+            <div className="stat-label"><Calendar size={15} /> Upcoming</div>
+            <div className="stat-value">{upcoming.length}</div>
           </div>
-
-          <div className="glass-card" style={{ padding: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'var(--accent-emerald)', marginBottom: 8 }}>
-              <CheckCircle2 size={20} />
-              <span style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Completed Visits</span>
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text-primary)' }}>{past.length}</div>
+          <div className="card stat-card">
+            <div className="stat-label"><CheckCircle2 size={15} /> Completed</div>
+            <div className="stat-value">{past.length}</div>
           </div>
         </div>
 
-        <h2 style={{ fontSize: 20, color: 'var(--text-primary)', marginBottom: 20 }}>Upcoming Appointments</h2>
+        <h2 className="section-title mb-12">Upcoming Appointments</h2>
 
         {loading ? (
-          <div style={{ color: 'var(--text-muted)' }}>Loading appointments...</div>
+          <div className="loading-text">Loading appointments...</div>
         ) : upcoming.length === 0 ? (
-          <div className="glass-card" style={{ padding: 40, textAlign: 'center' }}>
-            <Calendar size={48} style={{ color: 'var(--text-muted)', marginBottom: 16 }} />
-            <h3 style={{ color: 'var(--text-primary)', marginBottom: 8 }}>No upcoming appointments</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 24 }}>Book a visit with one of our specialized doctors today.</p>
-            <Link to="/patient/doctors" className="btn-primary">Find a Doctor</Link>
+          <div className="card empty-state">
+            <Calendar size={36} />
+            <h3>No upcoming appointments</h3>
+            <p>Book a visit with one of our doctors.</p>
+            <Link to="/patient/doctors" className="btn btn-accent">Find a Doctor</Link>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {upcoming.map((appt) => (
-              <motion.div
-                key={appt.id}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="glass-card"
-                style={{ padding: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-                  <div style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 14,
-                    background: 'var(--bg-elevated)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'var(--accent-cyan)'
-                  }}>
-                    <User size={24} />
+          <div className="card list-stack">
+            {upcoming.map(a => (
+              <motion.div key={a.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="list-item">
+                <div className="list-item-info">
+                  <div className="avatar avatar-md">
+                    <User size={20} />
                   </div>
                   <div>
-                    <h3 style={{ fontSize: 16, color: 'var(--text-primary)', marginBottom: 4 }}>{appt.doctor?.user?.name}</h3>
-                    <p style={{ fontSize: 13, color: 'var(--accent-cyan)', marginBottom: 8 }}>{appt.doctor?.specialisation}</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: 'var(--text-secondary)' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Clock size={14} /> {new Date(appt.startsAt).toLocaleString('en-IN')}
-                      </span>
+                    <div style={{ fontWeight: 500, marginBottom: 2 }}>
+                      {(a.doctor?.user?.name || '').replace(/^Dr\.?\s+/i, '')}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>{a.doctor?.specialisation}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Clock size={12} /> {new Date(a.startsAt).toLocaleString('en-IN')}
                     </div>
                   </div>
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  {appt.symptomForm?.urgency && <UrgencyBadge level={appt.symptomForm.urgency} />}
-                  <Link to={`/patient/appointments/${appt.id}`} className="btn-secondary" style={{ fontSize: 13, padding: '8px 16px' }}>
-                    View Details
-                  </Link>
+                <div className="list-item-actions">
+                  {a.symptomForm?.urgency && <UrgencyBadge level={a.symptomForm.urgency} />}
+                  <Link to={`/patient/appointments/${a.id}`} className="btn btn-ghost btn-sm">View</Link>
                 </div>
               </motion.div>
             ))}

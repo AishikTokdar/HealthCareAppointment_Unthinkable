@@ -2,7 +2,7 @@ const cron = require('node-cron');
 const prisma = require('../config/db');
 
 function startHoldExpiryJob() {
-  cron.schedule('*/5 * * * *', async () => {
+  cron.schedule('* * * * *', async () => {
     try {
       await prisma.appointment.updateMany({
         where: {

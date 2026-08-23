@@ -7,14 +7,13 @@ export default function PrivateRoute({ children, allowedRoles }) {
 
   if (loading) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'var(--text-muted)'
-      }}>
-        Loading session...
+      <div className="page-layout">
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+            <div className="skeleton" style={{ width: 200, height: 12 }} />
+            <div className="skeleton" style={{ width: 140, height: 12 }} />
+          </div>
+        </div>
       </div>
     );
   }

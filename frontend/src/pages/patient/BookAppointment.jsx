@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import Sidebar from '../../components/layout/Sidebar';
 import { doctorsApi } from '../../api/doctors.api';
 import { appointmentsApi } from '../../api/appointments.api';
-import { Calendar, Clock, User, Check, AlertCircle, ArrowLeft } from 'lucide-react';
+import { User, ArrowLeft } from 'lucide-react';
 
 export default function BookAppointment() {
   const { doctorId } = useParams();
@@ -32,10 +32,7 @@ export default function BookAppointment() {
   useEffect(() => {
     if (selectedDate && doctorId) {
       doctorsApi.getSlots(doctorId, selectedDate)
-        .then(res => {
-          setSlotsData(res.data);
-          setSelectedSlot(null);
-        })
+        .then(res => { setSlotsData(res.data); setSelectedSlot(null); })
         .catch(console.error);
     }
   }, [doctorId, selectedDate]);
@@ -49,7 +46,7 @@ export default function BookAppointment() {
       setHoldToken(res.data.holdToken);
       setStep(2);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to hold slot. It might already be reserved.');
+      setError(err.response?.data?.error || 'Failed to hold slot.');
     } finally {
       setSubmitting(false);
     }
@@ -57,17 +54,14 @@ export default function BookAppointment() {
 
   const handleConfirm = async (e) => {
     e.preventDefault();
-    if (!symptoms.trim()) {
-      setError('Please describe your symptoms before confirming.');
-      return;
-    }
+    if (!symptoms.trim()) { setError('Please describe your symptoms.'); return; }
     setError('');
     setSubmitting(true);
     try {
       await appointmentsApi.confirmBooking(holdToken, symptoms);
       navigate('/patient/dashboard');
     } catch (err) {
-      setError(err.response?.data?.error || 'Confirmation failed. Your hold might have expired.');
+      setError(err.response?.data?.error || 'Confirmation failed.');
     } finally {
       setSubmitting(false);
     }
@@ -75,85 +69,76 @@ export default function BookAppointment() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
+      <div className="page-layout">
         <Sidebar />
-        <main style={{ flex: 1, padding: 40, color: 'var(--text-muted)' }}>Loading doctor profile...</main>
+        <main className="page-main"><div className="loading-text">Loading doctor profile...</div></main>
       </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
+    <div className="page-layout">
       <Sidebar />
-      <main style={{ flex: 1, padding: 40, maxWidth: 900 }}>
-        <button onClick={() => navigate('/patient/doctors')} style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20 }}>
-          <ArrowLeft size={16} /> Back to Doctor Search
+      <main className="page-main" style={{ maxWidth: 860 }}>
+        <button onClick={() => navigate('/patient/doctors')} className="back-link">
+          <ArrowLeft size={14} /> Back to doctors
         </button>
 
-        <div className="glass-card" style={{ padding: 24, marginBottom: 32, display: 'flex', alignItems: 'center', gap: 20 }}>
-          <div style={{
-            width: 56,
-            height: 56,
-            borderRadius: 16,
-            background: 'var(--bg-elevated)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--accent-violet)'
-          }}>
-            <User size={30} />
-          </div>
+        <div className="card mb-24" style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div className="avatar avatar-md"><User size={22} /></div>
           <div>
-            <h2 style={{ fontSize: 20, color: 'var(--text-primary)' }}>{doctor?.user?.name}</h2>
-            <p style={{ fontSize: 14, color: 'var(--accent-cyan)' }}>{doctor?.specialisation} • {doctor?.slotDuration} mins slot</p>
+            <div style={{ fontWeight: 500 }}>{(doctor?.user?.name || '').replace(/^Dr\.?\s+/i, '')}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{doctor?.specialisation} · {doctor?.slotDuration} min slots</div>
           </div>
         </div>
 
+        <div className="steps-indicator mb-8">
+          <span className={`step-dot${step >= 1 ? ' active' : ''}`} />
+          <span style={{ fontSize: 11 }}>Select Time</span>
+          <span style={{ color: 'var(--text-muted)' }}>—</span>
+          <span className={`step-dot${step >= 2 ? ' active' : ''}`} />
+          <span style={{ fontSize: 11 }}>Symptoms</span>
+        </div>
+
         {error && (
-          <div style={{ background: 'rgba(244, 63, 94, 0.15)', border: '1px solid rgba(244, 63, 94, 0.3)', color: 'var(--accent-rose)', padding: '12px 16px', borderRadius: 'var(--radius-md)', marginBottom: 24, fontSize: 14 }}>
-            {error}
+          <div className="alert alert-danger mb-16" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+            <span>{error}</span>
+            {step === 2 && (
+              <button onClick={() => { setError(''); setStep(1); }} className="btn btn-ghost btn-sm">
+                Select New Time Slot
+              </button>
+            )}
           </div>
         )}
 
         {step === 1 && (
-          <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="glass-card" style={{ padding: 32 }}>
-            <h3 style={{ fontSize: 18, color: 'var(--text-primary)', marginBottom: 20 }}>Step 1: Select Date & Available Time Slot</h3>
+          <motion.div initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} className="card" style={{ padding: 24 }}>
+            <h3 className="section-title mb-16">Select Date & Time</h3>
 
-            <div style={{ marginBottom: 24 }}>
-              <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>Appointment Date</label>
+            <div className="form-group mb-20">
+              <label className="label">Date</label>
               <input
                 type="date"
-                className="input-field"
+                className="input"
                 value={selectedDate}
                 min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                style={{ maxWidth: 300 }}
+                style={{ maxWidth: 260 }}
               />
             </div>
 
             {slotsData && !slotsData.available ? (
-              <div style={{ padding: 20, background: 'var(--bg-surface)', borderRadius: 'var(--radius-md)', color: 'var(--accent-amber)', fontSize: 14 }}>
-                {slotsData.reason}
-              </div>
+              <div className="alert alert-warning">{slotsData.reason}</div>
             ) : (
               <div>
-                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>Available Slots</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12, marginBottom: 32 }}>
+                <label className="label mb-8">Available Slots</label>
+                <div className="slot-grid mb-24">
                   {slotsData?.slots.map((slot, idx) => (
                     <button
                       key={idx}
                       disabled={!slot.available}
                       onClick={() => setSelectedSlot(slot)}
-                      style={{
-                        padding: '12px',
-                        borderRadius: 'var(--radius-md)',
-                        border: selectedSlot?.startsAt === slot.startsAt ? '2px solid var(--accent-violet)' : '1px solid var(--border-light)',
-                        background: selectedSlot?.startsAt === slot.startsAt ? 'rgba(124, 92, 252, 0.15)' : slot.available ? 'var(--bg-surface)' : 'rgba(255,255,255,0.03)',
-                        color: slot.available ? 'var(--text-primary)' : 'var(--text-muted)',
-                        cursor: slot.available ? 'pointer' : 'not-allowed',
-                        fontSize: 13,
-                        fontWeight: 500
-                      }}
+                      className={`slot-btn${selectedSlot?.startsAt === slot.startsAt ? ' selected' : ''}`}
                     >
                       {new Date(slot.startsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </button>
@@ -162,41 +147,27 @@ export default function BookAppointment() {
               </div>
             )}
 
-            <button
-              onClick={handleHold}
-              disabled={!selectedSlot || submitting}
-              className="btn-primary"
-              style={{ width: '100%', justifyContent: 'center' }}
-            >
-              {submitting ? 'Holding slot...' : 'Reserve Slot & Continue'}
+            <button onClick={handleHold} disabled={!selectedSlot || submitting} className="btn btn-accent btn-full btn-lg">
+              {submitting ? 'Holding slot...' : 'Reserve & Continue'}
             </button>
           </motion.div>
         )}
 
         {step === 2 && (
-          <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="glass-card" style={{ padding: 32 }}>
-            <h3 style={{ fontSize: 18, color: 'var(--text-primary)', marginBottom: 8 }}>Step 2: Share Symptoms (Pre-Visit AI Summary)</h3>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 24 }}>Describe your symptoms in detail. Our AI will analyze them for your doctor before your visit.</p>
+          <motion.div initial={{ opacity: 0, x: 6 }} animate={{ opacity: 1, x: 0 }} className="card" style={{ padding: 24 }}>
+            <h3 className="section-title mb-4">Describe Your Symptoms</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 20 }}>Share details so the doctor can prepare for your visit.</p>
 
             <form onSubmit={handleConfirm}>
-              <div style={{ marginBottom: 24 }}>
-                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>Describe your current symptoms</label>
-                <textarea
-                  className="input-field"
-                  rows={5}
-                  value={symptoms}
-                  onChange={(e) => setSymptoms(e.target.value)}
-                  placeholder="E.g., I have been experiencing a persistent dry cough, mild headache, and fatigue for the past 3 days..."
-                  required
-                />
+              <div className="form-group mb-20">
+                <label className="label">Symptoms</label>
+                <textarea className="input" rows={5} value={symptoms} onChange={(e) => setSymptoms(e.target.value)} placeholder="Describe what you're experiencing..." required />
               </div>
 
-              <div style={{ display: 'flex', gap: 16 }}>
-                <button type="button" onClick={() => setStep(1)} className="btn-secondary" style={{ flex: 1 }}>
-                  Back
-                </button>
-                <button type="submit" disabled={submitting} className="btn-primary" style={{ flex: 2, justifyContent: 'center' }}>
-                  {submitting ? 'Processing Booking...' : 'Confirm Appointment'}
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button type="button" onClick={() => setStep(1)} className="btn btn-ghost" style={{ flex: 1 }}>Back</button>
+                <button type="submit" disabled={submitting} className="btn btn-accent" style={{ flex: 2 }}>
+                  {submitting ? 'Processing...' : 'Confirm Appointment'}
                 </button>
               </div>
             </form>

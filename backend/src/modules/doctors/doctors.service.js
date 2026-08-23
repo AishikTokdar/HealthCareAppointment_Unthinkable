@@ -86,6 +86,10 @@ async function getDoctorSlots(doctorId, dateString) {
   const workEnd = new Date(queryDate);
   workEnd.setHours(endH, endM, 0, 0);
 
+  if (isNaN(workStart.getTime()) || isNaN(workEnd.getTime())) {
+    return { available: false, reason: 'Invalid working hours configuration', slots: [] };
+  }
+
   const slotDurationMs = doctor.slotDuration * 60 * 1000;
 
   const startOfDay = new Date(queryDate);

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import Sidebar from '../../components/layout/Sidebar';
 import UrgencyBadge from '../../components/ui/UrgencyBadge';
 import { appointmentsApi } from '../../api/appointments.api';
-import { Calendar, User, Clock, ChevronRight } from 'lucide-react';
+import { User, Clock, ChevronRight } from 'lucide-react';
 
 export default function PatientAppointments() {
   const [appointments, setAppointments] = useState([]);
@@ -25,80 +25,62 @@ export default function PatientAppointments() {
     return true;
   });
 
-  return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
-      <Sidebar />
-      <main style={{ flex: 1, padding: 40, maxWidth: 1100 }}>
-        <h1 style={{ fontSize: 28, color: 'var(--text-primary)', marginBottom: 8 }}>My Appointments</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 32 }}>View your upcoming and historical medical appointments.</p>
+  const statusBadge = (status) => {
+    const map = {
+      CONFIRMED: 'badge-success',
+      COMPLETED: 'badge-accent',
+      CANCELLED: 'badge-danger',
+      PENDING: 'badge-warning'
+    };
+    return <span className={`badge ${map[status] || 'badge-neutral'}`}>{status}</span>;
+  };
 
-        <div style={{ display: 'flex', gap: 12, marginBottom: 32 }}>
+  return (
+    <div className="page-layout">
+      <Sidebar />
+      <main className="page-main" style={{ maxWidth: 1050 }}>
+        <div className="page-header">
+          <h1>My Appointments</h1>
+          <p>View upcoming and past medical appointments.</p>
+        </div>
+
+        <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
           {['ALL', 'UPCOMING', 'COMPLETED', 'CANCELLED'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setFilter(tab)}
-              className={filter === tab ? 'btn-primary' : 'btn-secondary'}
-              style={{ fontSize: 13, padding: '8px 16px', textTransform: 'capitalize' }}
-            >
-              {tab.toLowerCase()}
+            <button key={tab} onClick={() => setFilter(tab)} className={`chip${filter === tab ? ' active' : ''}`}>
+              {tab.charAt(0) + tab.slice(1).toLowerCase()}
             </button>
           ))}
         </div>
 
         {loading ? (
-          <div style={{ color: 'var(--text-muted)' }}>Loading records...</div>
+          <div className="loading-text">Loading records...</div>
         ) : filtered.length === 0 ? (
-          <div className="glass-card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-            No appointments found in this category.
+          <div className="card empty-state">
+            <User size={36} />
+            <h3>No appointments found</h3>
+            <p>No records in this category.</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="card list-stack">
             {filtered.map((appt) => (
-              <motion.div
-                key={appt.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="glass-card"
-                style={{ padding: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-                  <div style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 14,
-                    background: 'var(--bg-elevated)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'var(--accent-violet)'
-                  }}>
-                    <User size={24} />
-                  </div>
+              <motion.div key={appt.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="list-item">
+                <div className="list-item-info">
+                  <div className="avatar avatar-md"><User size={20} /></div>
                   <div>
-                    <h3 style={{ fontSize: 16, color: 'var(--text-primary)', marginBottom: 4 }}>{appt.doctor?.user?.name}</h3>
-                    <p style={{ fontSize: 13, color: 'var(--accent-cyan)', marginBottom: 8 }}>{appt.doctor?.specialisation}</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: 'var(--text-secondary)' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <Clock size={14} /> {new Date(appt.startsAt).toLocaleString('en-IN')}
+                    <div style={{ fontWeight: 500, marginBottom: 2 }}>{(appt.doctor?.user?.name || '').replace(/^Dr\.?\s+/i, '')}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>{appt.doctor?.specialisation}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: 'var(--text-muted)' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Clock size={12} /> {new Date(appt.startsAt).toLocaleString('en-IN')}
                       </span>
-                      <span style={{
-                        padding: '2px 8px',
-                        borderRadius: 12,
-                        fontSize: 11,
-                        fontWeight: 600,
-                        background: appt.status === 'CONFIRMED' ? 'rgba(16, 185, 129, 0.15)' : appt.status === 'CANCELLED' ? 'rgba(244, 63, 94, 0.15)' : 'var(--bg-surface)',
-                        color: appt.status === 'CONFIRMED' ? 'var(--accent-emerald)' : appt.status === 'CANCELLED' ? 'var(--accent-rose)' : 'var(--text-secondary)'
-                      }}>
-                        {appt.status}
-                      </span>
+                      {statusBadge(appt.status)}
                     </div>
                   </div>
                 </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div className="list-item-actions">
                   {appt.symptomForm?.urgency && <UrgencyBadge level={appt.symptomForm.urgency} />}
-                  <Link to={`/patient/appointments/${appt.id}`} className="btn-secondary" style={{ fontSize: 13, padding: '8px 16px' }}>
-                    View Summary <ChevronRight size={16} />
+                  <Link to={`/patient/appointments/${appt.id}`} className="btn btn-ghost btn-sm">
+                    View <ChevronRight size={14} />
                   </Link>
                 </div>
               </motion.div>

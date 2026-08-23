@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import Sidebar from '../../components/layout/Sidebar';
 import Modal from '../../components/ui/Modal';
 import { adminApi } from '../../api/admin.api';
-import { Users, Calendar, Plus, User, Trash2, UserPlus, CheckCircle, Check, X, Clock } from 'lucide-react';
+import { User, Trash2, UserPlus, CheckCircle, Check, X, Clock, Plus } from 'lucide-react';
 
 export default function DoctorList() {
   const [doctors, setDoctors] = useState([]);
@@ -18,13 +18,8 @@ export default function DoctorList() {
 
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [regForm, setRegForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-    phone: '',
-    specialisation: 'General Medicine',
-    slotDuration: '30',
-    bio: ''
+    name: '', email: '', password: '', phone: '',
+    specialisation: 'General Medicine', slotDuration: '30', bio: ''
   });
   const [regSubmitting, setRegSubmitting] = useState(false);
   const [regError, setRegError] = useState('');
@@ -35,22 +30,17 @@ export default function DoctorList() {
   const [rejectReason, setRejectReason] = useState('');
   const [processingReq, setProcessingReq] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = () => {
     setLoading(true);
     Promise.all([
       adminApi.getAllDoctors(),
       adminApi.getPendingLeaveRequests().catch(() => ({ data: [] }))
-    ])
-      .then(([docsRes, leavesRes]) => {
-        setDoctors(docsRes.data || []);
-        setLeaveRequests(leavesRes.data || []);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    ]).then(([docsRes, leavesRes]) => {
+      setDoctors(docsRes.data || []);
+      setLeaveRequests(leavesRes.data || []);
+    }).catch(console.error).finally(() => setLoading(false));
   };
 
   const handleAddLeave = async (e) => {
@@ -59,35 +49,23 @@ export default function DoctorList() {
     setAddingLeave(true);
     try {
       const res = await adminApi.addLeave(selectedDoctor.id, leaveDate, leaveReason);
-      alert(`Leave recorded! ${res.data.affectedCount} appointments cancelled. Notifications dispatched to doctor, admin, and patients.`);
-      setShowLeaveModal(false);
-      setLeaveDate('');
-      setLeaveReason('');
-      fetchData();
-    } catch (err) {
-      alert(err.response?.data?.error || 'Failed to record leave');
-    } finally {
-      setAddingLeave(false);
-    }
+      alert(`Leave recorded! ${res.data.affectedCount} appointments cancelled.`);
+      setShowLeaveModal(false); setLeaveDate(''); setLeaveReason(''); fetchData();
+    } catch (err) { alert(err.response?.data?.error || 'Failed to record leave'); }
+    finally { setAddingLeave(false); }
   };
 
   const handleRemoveLeave = async (doctorId, leaveId) => {
-    try {
-      await adminApi.removeLeave(doctorId, leaveId);
-      fetchData();
-    } catch (err) {
-      alert('Failed to remove leave');
-    }
+    try { await adminApi.removeLeave(doctorId, leaveId); fetchData(); }
+    catch (err) { alert('Failed to remove leave'); }
   };
 
   const handleApproveLeaveRequest = async (reqId) => {
     try {
       const res = await adminApi.approveLeaveRequest(reqId);
-      alert(`Leave request approved! ${res.data.affectedCount} patient appointments cancelled. Notifications sent to doctor, admin & patients.`);
+      alert(`Leave approved! ${res.data.affectedCount} appointments cancelled.`);
       fetchData();
-    } catch (err) {
-      alert(err.response?.data?.error || 'Failed to approve leave request');
-    }
+    } catch (err) { alert(err.response?.data?.error || 'Failed to approve leave request'); }
   };
 
   const handleRejectLeaveRequest = async () => {
@@ -95,102 +73,63 @@ export default function DoctorList() {
     setProcessingReq(true);
     try {
       await adminApi.rejectLeaveRequest(selectedReq.id, rejectReason);
-      alert('Leave request declined and doctor notified.');
-      setShowRejectLeaveModal(false);
-      setRejectReason('');
-      fetchData();
-    } catch (err) {
-      alert(err.response?.data?.error || 'Failed to reject leave request');
-    } finally {
-      setProcessingReq(false);
-    }
+      alert('Leave request declined.');
+      setShowRejectLeaveModal(false); setRejectReason(''); fetchData();
+    } catch (err) { alert(err.response?.data?.error || 'Failed to reject leave request'); }
+    finally { setProcessingReq(false); }
   };
 
   const handleCreateDoctor = async (e) => {
     e.preventDefault();
-    setRegError('');
-    setRegSuccess('');
-    setRegSubmitting(true);
-
+    setRegError(''); setRegSuccess(''); setRegSubmitting(true);
     try {
-      await adminApi.createDoctor({
-        ...regForm,
-        slotDuration: parseInt(regForm.slotDuration, 10)
-      });
-      setRegSuccess(`Doctor ${regForm.name} registered and approved successfully!`);
-      setRegForm({
-        name: '',
-        email: '',
-        password: '',
-        phone: '',
-        specialisation: 'General Medicine',
-        slotDuration: '30',
-        bio: ''
-      });
+      await adminApi.createDoctor({ ...regForm, slotDuration: parseInt(regForm.slotDuration, 10) });
+      setRegSuccess(`Doctor ${regForm.name} registered successfully!`);
+      setRegForm({ name: '', email: '', password: '', phone: '', specialisation: 'General Medicine', slotDuration: '30', bio: '' });
       fetchData();
-      setTimeout(() => {
-        setShowRegisterModal(false);
-        setRegSuccess('');
-      }, 1500);
+      setTimeout(() => { setShowRegisterModal(false); setRegSuccess(''); }, 1500);
     } catch (err) {
-      const detailMsg = err.response?.data?.details?.length
-        ? err.response.data.details.join(', ')
-        : err.response?.data?.error || 'Failed to register doctor';
+      const detailMsg = err.response?.data?.details?.length ? err.response.data.details.join(', ') : err.response?.data?.error || 'Failed to register doctor';
       setRegError(detailMsg);
-    } finally {
-      setRegSubmitting(false);
-    }
+    } finally { setRegSubmitting(false); }
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-base)' }}>
+    <div className="page-layout">
       <Sidebar />
-      <main style={{ flex: 1, padding: 40, maxWidth: 1100 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-          <div>
-            <h1 style={{ fontSize: 28, color: 'var(--text-primary)', marginBottom: 8 }}>Manage Doctors & Registrations</h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Register new clinic doctors, approve leave requests, and manage profiles.</p>
+      <main className="page-main" style={{ maxWidth: 1100 }}>
+        <div className="page-header">
+          <div className="page-header-row">
+            <div>
+              <h1>Manage Doctors & Registrations</h1>
+              <p>Register new clinic doctors, approve leave requests, and manage profiles.</p>
+            </div>
+            <button onClick={() => setShowRegisterModal(true)} className="btn btn-accent">
+              <UserPlus size={16} /> Register New Doctor
+            </button>
           </div>
-          <button
-            onClick={() => setShowRegisterModal(true)}
-            className="btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px' }}
-          >
-            <UserPlus size={18} /> Register New Doctor
-          </button>
         </div>
 
         {leaveRequests.length > 0 && (
-          <div className="glass-card" style={{ padding: 24, marginBottom: 32, borderTop: '4px solid var(--accent-violet)' }}>
-            <h2 style={{ fontSize: 18, color: 'var(--text-primary)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Clock size={20} style={{ color: 'var(--accent-violet)' }} /> Doctor Leave Requests Queue ({leaveRequests.length})
+          <div className="card mb-32" style={{ padding: 24, borderTop: '3px solid var(--warning)' }}>
+            <h2 className="section-title mb-16" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Clock size={16} style={{ color: 'var(--warning)' }} /> Leave Requests Queue ({leaveRequests.length})
             </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div className="list-stack">
               {leaveRequests.map((req) => (
-                <div key={req.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-surface)', padding: 16, borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
+                <div key={req.id} className="card-flat" style={{ padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                    <h4 style={{ fontSize: 15, color: 'var(--text-primary)', marginBottom: 2 }}>{req.doctor?.user?.name}</h4>
-                    <span style={{ fontSize: 13, color: 'var(--accent-cyan)', display: 'block', marginBottom: 4 }}>
-                      Requested Leave Date: <strong>{new Date(req.date).toLocaleDateString('en-IN')}</strong>
+                    <h4 style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>{req.doctor?.user?.name}</h4>
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
+                      Date: <strong style={{ color: 'var(--text-primary)' }}>{new Date(req.date).toLocaleDateString('en-IN')}</strong>
                     </span>
-                    <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Reason: {req.reason || 'No reason provided'}</p>
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Reason: {req.reason || 'None provided'}</p>
                   </div>
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <button
-                      onClick={() => {
-                        setSelectedReq(req);
-                        setShowRejectLeaveModal(true);
-                      }}
-                      className="btn-danger"
-                      style={{ fontSize: 13, padding: '6px 14px' }}
-                    >
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => { setSelectedReq(req); setShowRejectLeaveModal(true); }} className="btn btn-danger btn-sm">
                       <X size={14} /> Decline
                     </button>
-                    <button
-                      onClick={() => handleApproveLeaveRequest(req.id)}
-                      className="btn-primary"
-                      style={{ fontSize: 13, padding: '6px 14px' }}
-                    >
+                    <button onClick={() => handleApproveLeaveRequest(req.id)} className="btn btn-accent btn-sm">
                       <Check size={14} /> Approve Leave
                     </button>
                   </div>
@@ -201,132 +140,83 @@ export default function DoctorList() {
         )}
 
         {loading ? (
-          <div style={{ color: 'var(--text-muted)' }}>Loading doctor directory...</div>
+          <div className="loading-text">Loading doctor directory...</div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 24 }}>
-            {doctors.map((doc) => (
-              <motion.div key={doc.id} className="glass-card" style={{ padding: 24 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
-                  <div style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 14,
-                    background: 'var(--bg-elevated)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'var(--accent-violet)'
-                  }}>
-                    <User size={24} />
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: 16, color: 'var(--text-primary)' }}>{doc.user?.name}</h3>
-                    <span style={{ fontSize: 13, color: 'var(--accent-cyan)' }}>{doc.specialisation}</span>
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Status: {doc.approvalStatus}</div>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: 16 }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Scheduled Leave Days</span>
-                  {doc.leaveDays && doc.leaveDays.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {doc.leaveDays.map((ld) => (
-                        <div key={ld.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface)', padding: '6px 10px', borderRadius: 'var(--radius-sm)', fontSize: 12 }}>
-                          <span>{new Date(ld.date).toLocaleDateString('en-IN')}</span>
-                          <button onClick={() => handleRemoveLeave(doc.id, ld.id)} style={{ background: 'none', border: 'none', color: 'var(--accent-rose)', cursor: 'pointer' }}>
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      ))}
+          <div className="grid-auto">
+            {doctors.map((doc) => {
+              const cleanName = (doc.user?.name || '').replace(/^Dr\.?\s+/i, '');
+              const initials = cleanName.split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+              return (
+                <motion.div key={doc.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ padding: 24 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+                    <div className="avatar avatar-md avatar-circle" style={{ background: 'var(--bg-inset)' }}>
+                      {initials}
                     </div>
-                  ) : (
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontStyle: 'italic' }}>No leave scheduled</span>
-                  )}
-                </div>
+                    <div>
+                      <h3 style={{ fontSize: 15, fontWeight: 500, marginBottom: 2 }}>{cleanName}</h3>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 2 }}>{doc.specialisation}</span>
+                      <span className={`badge ${doc.approvalStatus === 'APPROVED' ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: 10 }}>
+                        {doc.approvalStatus}
+                      </span>
+                    </div>
+                  </div>
 
-                <button
-                  onClick={() => {
-                    setSelectedDoctor(doc);
-                    setShowLeaveModal(true);
-                  }}
-                  className="btn-secondary"
-                  style={{ width: '100%', fontSize: 13, padding: '8px 12px' }}
-                >
-                  <Plus size={14} /> Schedule Leave Day Directly
-                </button>
-              </motion.div>
-            ))}
+                  <div className="mb-16">
+                    <span className="detail-label">Scheduled Leave Days</span>
+                    {doc.leaveDays && doc.leaveDays.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                        {doc.leaveDays.map((ld) => (
+                          <div key={ld.id} className="card-flat" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', fontSize: 12 }}>
+                            <span>{new Date(ld.date).toLocaleDateString('en-IN')}</span>
+                            <button onClick={() => handleRemoveLeave(doc.id, ld.id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', display: 'flex', padding: 2 }}>
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginTop: 4, fontStyle: 'italic' }}>No leave scheduled</span>
+                    )}
+                  </div>
+
+                  <button onClick={() => { setSelectedDoctor(doc); setShowLeaveModal(true); }} className="btn btn-ghost btn-full btn-sm">
+                    <Plus size={14} /> Schedule Leave Day
+                  </button>
+                </motion.div>
+              );
+            })}
           </div>
         )}
 
         <Modal isOpen={showRegisterModal} onClose={() => setShowRegisterModal(false)} title="Register New Clinic Doctor">
-          {regError && (
-            <div style={{ background: 'rgba(244, 63, 94, 0.15)', border: '1px solid rgba(244, 63, 94, 0.3)', color: 'var(--accent-rose)', padding: '10px 14px', borderRadius: 'var(--radius-md)', marginBottom: 16, fontSize: 13 }}>
-              {regError}
-            </div>
-          )}
-          {regSuccess && (
-            <div style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: 'var(--accent-emerald)', padding: '10px 14px', borderRadius: 'var(--radius-md)', marginBottom: 16, fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <CheckCircle size={16} /> {regSuccess}
-            </div>
-          )}
+          {regError && <div className="alert alert-danger mb-16">{regError}</div>}
+          {regSuccess && <div className="alert alert-success mb-16"><CheckCircle size={16} /> {regSuccess}</div>}
 
-          <form onSubmit={handleCreateDoctor} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div>
-              <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>Full Name</label>
-              <input
-                type="text"
-                className="input-field"
-                value={regForm.name}
-                onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
-                placeholder="Aarav Patel"
-                required
-              />
+          <form onSubmit={handleCreateDoctor} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div className="form-group">
+              <label className="label">Full Name</label>
+              <input type="text" className="input" value={regForm.name} onChange={(e) => setRegForm({ ...regForm, name: e.target.value })} placeholder="Aarav Patel" required />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>Email</label>
-                <input
-                  type="email"
-                  className="input-field"
-                  value={regForm.email}
-                  onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
-                  placeholder="doctor@clinic.in"
-                  required
-                />
+            <div className="form-row form-row-2">
+              <div className="form-group">
+                <label className="label">Email</label>
+                <input type="email" className="input" value={regForm.email} onChange={(e) => setRegForm({ ...regForm, email: e.target.value })} required />
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>Password</label>
-                <input
-                  type="password"
-                  className="input-field"
-                  value={regForm.password}
-                  onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
-                  placeholder="••••••••"
-                  required
-                />
+              <div className="form-group">
+                <label className="label">Password</label>
+                <input type="password" className="input" value={regForm.password} onChange={(e) => setRegForm({ ...regForm, password: e.target.value })} required />
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>Phone</label>
-                <input
-                  type="tel"
-                  className="input-field"
-                  value={regForm.phone}
-                  onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })}
-                  placeholder="+91 98765 43210"
-                />
+            <div className="form-row form-row-2">
+              <div className="form-group">
+                <label className="label">Phone</label>
+                <input type="tel" className="input" value={regForm.phone} onChange={(e) => setRegForm({ ...regForm, phone: e.target.value })} />
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>Specialisation</label>
-                <select
-                  className="input-field"
-                  value={regForm.specialisation}
-                  onChange={(e) => setRegForm({ ...regForm, specialisation: e.target.value })}
-                >
+              <div className="form-group">
+                <label className="label">Specialisation</label>
+                <select className="input" value={regForm.specialisation} onChange={(e) => setRegForm({ ...regForm, specialisation: e.target.value })}>
                   <option value="General Medicine">General Medicine</option>
                   <option value="Cardiology">Cardiology</option>
                   <option value="Dermatology">Dermatology</option>
@@ -340,13 +230,9 @@ export default function DoctorList() {
               </div>
             </div>
 
-            <div>
-              <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>Slot Duration (minutes)</label>
-              <select
-                className="input-field"
-                value={regForm.slotDuration}
-                onChange={(e) => setRegForm({ ...regForm, slotDuration: e.target.value })}
-              >
+            <div className="form-group">
+              <label className="label">Slot Duration (minutes)</label>
+              <select className="input" value={regForm.slotDuration} onChange={(e) => setRegForm({ ...regForm, slotDuration: e.target.value })}>
                 <option value="15">15 Minutes</option>
                 <option value="30">30 Minutes</option>
                 <option value="45">45 Minutes</option>
@@ -354,20 +240,14 @@ export default function DoctorList() {
               </select>
             </div>
 
-            <div>
-              <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 4 }}>Bio / Profile Summary</label>
-              <textarea
-                className="input-field"
-                rows={2}
-                value={regForm.bio}
-                onChange={(e) => setRegForm({ ...regForm, bio: e.target.value })}
-                placeholder="Senior Consultant Physician with 10+ years clinical experience..."
-              />
+            <div className="form-group">
+              <label className="label">Bio / Profile Summary</label>
+              <textarea className="input" rows={2} value={regForm.bio} onChange={(e) => setRegForm({ ...regForm, bio: e.target.value })} />
             </div>
 
             <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-              <button type="button" onClick={() => setShowRegisterModal(false)} className="btn-secondary" style={{ flex: 1 }}>Cancel</button>
-              <button type="submit" disabled={regSubmitting} className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
+              <button type="button" onClick={() => setShowRegisterModal(false)} className="btn btn-ghost" style={{ flex: 1 }}>Cancel</button>
+              <button type="submit" disabled={regSubmitting} className="btn btn-accent" style={{ flex: 1 }}>
                 {regSubmitting ? 'Registering...' : 'Register Doctor'}
               </button>
             </div>
@@ -376,51 +256,31 @@ export default function DoctorList() {
 
         <Modal isOpen={showLeaveModal} onClose={() => setShowLeaveModal(false)} title={`Schedule Leave - ${selectedDoctor?.user?.name}`}>
           <form onSubmit={handleAddLeave}>
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>Leave Date</label>
-              <input
-                type="date"
-                className="input-field"
-                value={leaveDate}
-                min={new Date().toISOString().split('T')[0]}
-                onChange={(e) => setLeaveDate(e.target.value)}
-                required
-              />
+            <div className="form-group mb-16">
+              <label className="label">Leave Date</label>
+              <input type="date" className="input" value={leaveDate} min={new Date().toISOString().split('T')[0]} onChange={(e) => setLeaveDate(e.target.value)} required />
             </div>
-            <div style={{ marginBottom: 24 }}>
-              <label style={{ display: 'block', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>Reason (Optional)</label>
-              <input
-                type="text"
-                className="input-field"
-                value={leaveReason}
-                onChange={(e) => setLeaveReason(e.target.value)}
-                placeholder="Personal leave, medical conference..."
-              />
+            <div className="form-group mb-24">
+              <label className="label">Reason (Optional)</label>
+              <input type="text" className="input" value={leaveReason} onChange={(e) => setLeaveReason(e.target.value)} />
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
-              <button type="button" onClick={() => setShowLeaveModal(false)} className="btn-secondary" style={{ flex: 1 }}>Cancel</button>
-              <button type="submit" disabled={addingLeave} className="btn-primary" style={{ flex: 1, justifyContent: 'center' }}>
-                {addingLeave ? 'Scheduling...' : 'Save Leave Day'}
+              <button type="button" onClick={() => setShowLeaveModal(false)} className="btn btn-ghost" style={{ flex: 1 }}>Cancel</button>
+              <button type="submit" disabled={addingLeave} className="btn btn-accent" style={{ flex: 1 }}>
+                {addingLeave ? 'Scheduling...' : 'Save Leave'}
               </button>
             </div>
           </form>
         </Modal>
 
-        <Modal isOpen={showRejectLeaveModal} onClose={() => setShowRejectLeaveModal(false)} title="Decline Doctor Leave Request">
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 16 }}>
+        <Modal isOpen={showRejectLeaveModal} onClose={() => setShowRejectLeaveModal(false)} title="Decline Leave Request">
+          <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 16 }}>
             Decline leave request for {selectedReq?.doctor?.user?.name} on {selectedReq ? new Date(selectedReq.date).toLocaleDateString('en-IN') : ''}?
           </p>
-          <textarea
-            className="input-field"
-            rows={3}
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="Reason for declining leave (optional)..."
-            style={{ marginBottom: 20 }}
-          />
+          <textarea className="input mb-20" rows={3} value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Reason for declining..." />
           <div style={{ display: 'flex', gap: 12 }}>
-            <button onClick={() => setShowRejectLeaveModal(false)} className="btn-secondary" style={{ flex: 1 }}>Cancel</button>
-            <button onClick={handleRejectLeaveRequest} disabled={processingReq} className="btn-danger" style={{ flex: 1 }}>
+            <button onClick={() => setShowRejectLeaveModal(false)} className="btn btn-ghost" style={{ flex: 1 }}>Cancel</button>
+            <button onClick={handleRejectLeaveRequest} disabled={processingReq} className="btn btn-danger" style={{ flex: 1 }}>
               {processingReq ? 'Declining...' : 'Confirm Decline'}
             </button>
           </div>

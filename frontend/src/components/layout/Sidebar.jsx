@@ -1,17 +1,19 @@
 import React, { useContext } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
+import { ThemeContext } from '../../context/ThemeContext';
 import {
   Calendar,
   UserCheck,
   FileText,
   Users,
-  Clock,
   Bell,
   LogOut,
   HeartPulse,
   Activity,
-  History
+  History,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -29,14 +31,14 @@ export default function Sidebar() {
   ];
 
   const doctorLinks = [
-    { path: '/doctor/dashboard', label: 'Today\'s Schedule', icon: Calendar }
+    { path: '/doctor/dashboard', label: 'Schedule', icon: Calendar }
   ];
 
   const adminLinks = [
     { path: '/admin/dashboard', label: 'Overview', icon: Activity },
     { path: '/admin/doctors/pending', label: 'Pending Approvals', icon: UserCheck },
     { path: '/admin/doctors', label: 'Manage Doctors', icon: Users },
-    { path: '/admin/history', label: 'Visit History & PDFs', icon: FileText },
+    { path: '/admin/history', label: 'Visit History', icon: FileText },
     { path: '/admin/notifications', label: 'Audit Logs', icon: Bell }
   ];
 
@@ -47,38 +49,28 @@ export default function Sidebar() {
     navigate('/login');
   };
 
+  const initials = (user.name || '')
+    .split(' ')
+    .map(w => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
   return (
-    <aside style={{
-      width: 260,
-      minHeight: '100vh',
-      background: 'var(--bg-surface)',
-      borderRight: '1px solid var(--border-light)',
-      display: 'flex',
-      flexDirection: 'column',
-      padding: '24px 16px'
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 12px 32px 12px' }}>
-        <div style={{
-          width: 40,
-          height: 40,
-          borderRadius: 12,
-          background: 'linear-gradient(135deg, var(--accent-violet) 0%, var(--accent-cyan) 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'white'
-        }}>
-          <HeartPulse size={24} />
-        </div>
-        <div>
-          <h2 style={{ fontSize: 16, color: 'var(--text-primary)' }}>HealthCare Manager</h2>
-          <span style={{ fontSize: 11, color: 'var(--accent-cyan)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            {user.role} PORTAL
-          </span>
+    <aside className="sidebar">
+      <div className="sidebar-brand" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="sidebar-brand-icon">
+            <HeartPulse size={18} />
+          </div>
+          <div>
+            <h2>HealthCare</h2>
+            <span>{user.role}</span>
+          </div>
         </div>
       </div>
 
-      <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <nav className="sidebar-nav">
         {links.map((link) => {
           const Icon = link.icon;
           const isActive = location.pathname === link.path;
@@ -86,55 +78,21 @@ export default function Sidebar() {
             <Link
               key={link.path}
               to={link.path}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 14,
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-md)',
-                color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                background: isActive ? 'var(--bg-elevated)' : 'transparent',
-                borderLeft: isActive ? '3px solid var(--accent-violet)' : '3px solid transparent',
-                fontWeight: isActive ? 600 : 400,
-                fontSize: 14,
-                transition: 'all 0.2s ease'
-              }}
+              className={`sidebar-link${isActive ? ' active' : ''}`}
             >
-              <Icon size={18} style={{ color: isActive ? 'var(--accent-violet)' : 'var(--text-muted)' }} />
+              <Icon size={16} />
               {link.label}
             </Link>
           );
         })}
       </nav>
 
-      <div style={{
-        padding: '16px',
-        background: 'var(--bg-base)',
-        borderRadius: 'var(--radius-md)',
-        border: '1px solid var(--border-light)',
-        marginTop: 'auto'
-      }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{user.name}</div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>{user.email}</div>
-        <button
-          onClick={handleLogout}
-          style={{
-            width: '100%',
-            background: 'transparent',
-            border: '1px solid var(--border-light)',
-            color: 'var(--accent-rose)',
-            padding: '8px 12px',
-            borderRadius: 'var(--radius-sm)',
-            cursor: 'pointer',
-            fontSize: 13,
-            fontWeight: 500,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8
-          }}
-        >
-          <LogOut size={14} /> Sign Out
+      <div className="sidebar-footer">
+        <div className="user-name">{user.name}</div>
+        <div className="user-email">{user.email}</div>
+        <button onClick={handleLogout} className="sidebar-signout">
+          <LogOut size={13} />
+          Sign out
         </button>
       </div>
     </aside>

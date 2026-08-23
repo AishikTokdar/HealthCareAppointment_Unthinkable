@@ -2,6 +2,7 @@ import React, { useContext } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthContext } from './context/AuthContext';
 import PrivateRoute from './components/layout/PrivateRoute';
+import ThemeToggle from './components/ui/ThemeToggle';
 
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -37,30 +38,33 @@ export default function App() {
   };
 
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/calendar-success" element={<CalendarSuccess />} />
+    <>
+      <ThemeToggle />
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/calendar-success" element={<CalendarSuccess />} />
 
-      <Route path="/patient/dashboard" element={<PrivateRoute allowedRoles={['PATIENT']}><PatientDashboard /></PrivateRoute>} />
-      <Route path="/patient/doctors" element={<PrivateRoute allowedRoles={['PATIENT']}><DoctorSearch /></PrivateRoute>} />
-      <Route path="/patient/book/:doctorId" element={<PrivateRoute allowedRoles={['PATIENT']}><BookAppointment /></PrivateRoute>} />
-      <Route path="/patient/appointments" element={<PrivateRoute allowedRoles={['PATIENT']}><PatientAppointments /></PrivateRoute>} />
-      <Route path="/patient/appointments/:id" element={<PrivateRoute allowedRoles={['PATIENT']}><PatientAppointmentDetail /></PrivateRoute>} />
-      <Route path="/patient/history" element={<PrivateRoute allowedRoles={['PATIENT']}><PatientMedicalHistory /></PrivateRoute>} />
+        <Route path="/patient/dashboard" element={<PrivateRoute allowedRoles={['PATIENT']}><PatientDashboard /></PrivateRoute>} />
+        <Route path="/patient/doctors" element={<PrivateRoute allowedRoles={['PATIENT']}><DoctorSearch /></PrivateRoute>} />
+        <Route path="/patient/book/:doctorId" element={<PrivateRoute allowedRoles={['PATIENT']}><BookAppointment /></PrivateRoute>} />
+        <Route path="/patient/appointments" element={<PrivateRoute allowedRoles={['PATIENT']}><PatientAppointments /></PrivateRoute>} />
+        <Route path="/patient/appointments/:id" element={<PrivateRoute allowedRoles={['PATIENT']}><PatientAppointmentDetail /></PrivateRoute>} />
+        <Route path="/patient/history" element={<PrivateRoute allowedRoles={['PATIENT']}><PatientMedicalHistory /></PrivateRoute>} />
 
-      <Route path="/doctor/dashboard" element={<PrivateRoute allowedRoles={['DOCTOR']}><DoctorDashboard /></PrivateRoute>} />
-      <Route path="/doctor/appointments/:id" element={<PrivateRoute allowedRoles={['DOCTOR']}><DoctorAppointmentDetail /></PrivateRoute>} />
-      <Route path="/doctor/visit/:id" element={<PrivateRoute allowedRoles={['DOCTOR']}><SubmitVisitNote /></PrivateRoute>} />
-      <Route path="/doctor/patient-history/:patientId" element={<PrivateRoute allowedRoles={['DOCTOR']}><DoctorPatientHistory /></PrivateRoute>} />
+        <Route path="/doctor/dashboard" element={<PrivateRoute allowedRoles={['DOCTOR']}><DoctorDashboard /></PrivateRoute>} />
+        <Route path="/doctor/appointments/:id" element={<PrivateRoute allowedRoles={['DOCTOR']}><DoctorAppointmentDetail /></PrivateRoute>} />
+        <Route path="/doctor/visit/:id" element={<PrivateRoute allowedRoles={['DOCTOR']}><SubmitVisitNote /></PrivateRoute>} />
+        <Route path="/doctor/patient-history/:patientId" element={<PrivateRoute allowedRoles={['DOCTOR']}><DoctorPatientHistory /></PrivateRoute>} />
 
-      <Route path="/admin/dashboard" element={<PrivateRoute allowedRoles={['ADMIN']}><AdminDashboard /></PrivateRoute>} />
-      <Route path="/admin/doctors/pending" element={<PrivateRoute allowedRoles={['ADMIN']}><PendingDoctors /></PrivateRoute>} />
-      <Route path="/admin/doctors" element={<PrivateRoute allowedRoles={['ADMIN']}><DoctorList /></PrivateRoute>} />
-      <Route path="/admin/notifications" element={<PrivateRoute allowedRoles={['ADMIN']}><NotificationLog /></PrivateRoute>} />
-      <Route path="/admin/history" element={<PrivateRoute allowedRoles={['ADMIN']}><VisitHistory /></PrivateRoute>} />
+        <Route path="/admin/dashboard" element={<PrivateRoute allowedRoles={['ADMIN']}><AdminDashboard /></PrivateRoute>} />
+        <Route path="/admin/doctors/pending" element={<PrivateRoute allowedRoles={['ADMIN']}><PendingDoctors /></PrivateRoute>} />
+        <Route path="/admin/doctors" element={<PrivateRoute allowedRoles={['ADMIN']}><DoctorList /></PrivateRoute>} />
+        <Route path="/admin/notifications" element={<PrivateRoute allowedRoles={['ADMIN']}><NotificationLog /></PrivateRoute>} />
+        <Route path="/admin/history" element={<PrivateRoute allowedRoles={['ADMIN']}><VisitHistory /></PrivateRoute>} />
 
-      <Route path="*" element={<Navigate to={getDefaultRedirect()} replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to={getDefaultRedirect()} replace />} />
+      </Routes>
+    </>
   );
 }
