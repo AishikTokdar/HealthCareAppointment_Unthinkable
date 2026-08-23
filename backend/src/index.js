@@ -34,10 +34,11 @@ const startNotificationWorker = require('./jobs/notificationWorker');
 const startHoldExpiryJob = require('./jobs/holdExpiry');
 const startAppointmentReminderJob = require('./jobs/appointmentReminder');
 const startMedicationReminderJob = require('./jobs/medicationReminder');
-const startKeepAliveJob = require('./jobs/keepAlive');
+const { startKeepAliveJob, expressKeepAliveMiddleware } = require('./jobs/keepAlive');
 
 const app = express();
 
+app.use(expressKeepAliveMiddleware);
 app.use(helmet());
 app.use(cors({
   origin: (origin, callback) => {
