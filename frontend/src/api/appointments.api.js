@@ -13,5 +13,6 @@ export const appointmentsApi = {
   heartbeat: (id) => client.post(`/appointments/${id}/heartbeat`),
   sendMessage: (id, message) => client.post(`/appointments/${id}/messages`, { message }),
   getMessages: (id) => client.get(`/appointments/${id}/messages`),
-  aiRefineDraft: (id, draft) => client.post(`/appointments/${id}/ai-refine`, { draft })
+  aiRefineDraft: (id, draft) => client.post(`/appointments/${id}/ai-refine`, { draft }),
+  rate: (id, payload) => client.post(`/appointments/${id}/rate`, payload)
 };

@@ -26,5 +26,6 @@ router.post('/:id/heartbeat', appointmentsController.handleChatHeartbeat);
 router.post('/:id/messages', appointmentsController.handleSendChatMessage);
 router.get('/:id/messages', appointmentsController.handleGetChatMessages);
 router.post('/:id/ai-refine', guard('DOCTOR'), requireApproved, appointmentsController.handleAiRefineDraft);
+router.post('/:id/rate', guard('PATIENT'), appointmentsController.handleRateAppointment);
 
 module.exports = router;

@@ -17,7 +17,8 @@ function startNotificationWorker() {
 
       for (const notification of pendingNotifications) {
         try {
-          await sendNotification(notification, notification.user.email);
+          const recipientEmail = notification.user?.email || 'patient@clinic.com';
+          await sendNotification(notification, recipientEmail);
           await prisma.notification.update({
             where: { id: notification.id },
             data: {

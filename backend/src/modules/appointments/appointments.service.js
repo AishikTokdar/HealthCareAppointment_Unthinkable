@@ -639,6 +639,35 @@ async function aiRefineDoctorDraft(user, appointmentId, draftText) {
   return { refinedText: refined };
 }
 
+async function rateAppointment(user, appointmentId, rating, feedback) {
+  const appt = await prisma.appointment.findUnique({
+    where: { id: appointmentId }
+  });
+
+  if (!appt || appt.patientId !== user.userId) {
+    const err = new Error('Appointment not found or unauthorized');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  if (appt.status !== 'COMPLETED') {
+    const err = new Error('Feedback can only be submitted for completed visits');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const numRating = Math.max(1, Math.min(5, parseInt(rating) || 5));
+
+  return prisma.appointment.update({
+    where: { id: appointmentId },
+    data: {
+      rating: numRating,
+      feedback: feedback ? String(feedback).trim() : null,
+      ratedAt: new Date()
+    }
+  });
+}
+
 module.exports = {
   holdSlot,
   confirmBooking,
@@ -652,5 +681,6 @@ module.exports = {
   chatHeartbeat,
   sendChatMessage,
   getChatMessages,
-  aiRefineDoctorDraft
+  aiRefineDoctorDraft,
+  rateAppointment
 };

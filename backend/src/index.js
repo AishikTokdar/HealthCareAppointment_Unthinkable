@@ -51,6 +51,12 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' }));
 app.use(apiLimiter);
 
+const getLandingPageHtml = require('./views/landingPage');
+
+app.get('/', (req, res) => {
+  res.send(getLandingPageHtml());
+});
+
 app.get('/api/v1/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });

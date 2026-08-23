@@ -138,6 +138,16 @@ async function handleAiRefineDraft(req, res, next) {
   }
 }
 
+async function handleRateAppointment(req, res, next) {
+  try {
+    const { rating, feedback } = req.body;
+    const result = await appointmentsService.rateAppointment(req.user, req.params.id, rating, feedback);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   handleHoldSlot,
   handleConfirmBooking,
@@ -147,9 +157,12 @@ module.exports = {
   handleCancelAppointment,
   handleCompleteAppointment,
   handleStartChat,
+  closeChat: handleCloseChat,
+  handleStartChat,
   handleCloseChat,
   handleChatHeartbeat,
   handleSendChatMessage,
   handleGetChatMessages,
-  handleAiRefineDraft
+  handleAiRefineDraft,
+  handleRateAppointment
 };

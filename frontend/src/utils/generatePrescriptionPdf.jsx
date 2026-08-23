@@ -54,7 +54,6 @@ export function generatePrescriptionPdf(appointment, mode = 'PATIENT') {
   const htmlContent = `
     <div style="font-family: 'Inter', system-ui, -apple-system, sans-serif; padding: 40px; color: #1e293b; background: #ffffff; max-width: 800px; margin: 0 auto; line-height: 1.5;">
       
-      <!-- Clinic Letterhead Header -->
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #6366f1; padding-bottom: 20px; margin-bottom: 24px;">
         <div>
           <h1 style="font-size: 22px; color: #4338ca; margin: 0 0 4px 0; font-weight: 700; letter-spacing: -0.5px;">
@@ -68,7 +67,6 @@ export function generatePrescriptionPdf(appointment, mode = 'PATIENT') {
         </div>
       </div>
 
-      <!-- Doctor & Patient Details Grid -->
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
         <div>
           <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 4px;">Attending Physician</span>
@@ -84,13 +82,11 @@ export function generatePrescriptionPdf(appointment, mode = 'PATIENT') {
         </div>
       </div>
 
-      <!-- Visit Timing & Urgency -->
       <div style="display: flex; justify-content: space-between; background: #f1f5f9; padding: 10px 16px; border-radius: 6px; font-size: 12px; margin-bottom: 24px;">
         <div><strong>Consultation Date & Time:</strong> ${formattedDate}</div>
         <div><strong>Triage Urgency:</strong> <span style="color: ${urgency === 'High' ? '#dc2626' : urgency === 'Low' ? '#059669' : '#d97706'}; font-weight: 700;">${urgency}</span></div>
       </div>
 
-      <!-- Symptoms & Chief Complaint -->
       <div style="margin-bottom: 24px;">
         <h4 style="font-size: 13px; text-transform: uppercase; color: #475569; margin: 0 0 8px 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
           Reported Symptoms & Chief Complaint
@@ -101,7 +97,6 @@ export function generatePrescriptionPdf(appointment, mode = 'PATIENT') {
         </div>
       </div>
 
-      <!-- Doctor Clinical Notes & Patient Summary -->
       <div style="margin-bottom: 24px;">
         <h4 style="font-size: 13px; text-transform: uppercase; color: #475569; margin: 0 0 8px 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
           Clinical Notes & Doctor Assessment
@@ -110,7 +105,6 @@ export function generatePrescriptionPdf(appointment, mode = 'PATIENT') {
         ${patientSummary ? `<div style="background: #eef2ff; border-left: 3px solid #6366f1; padding: 10px 14px; font-size: 12px; color: #3730a3; border-radius: 0 6px 6px 0;"><strong>Patient Summary:</strong> ${patientSummary}</div>` : ''}
       </div>
 
-      <!-- Prescribed Medications Table -->
       <div style="margin-bottom: 32px;">
         <h4 style="font-size: 13px; text-transform: uppercase; color: #475569; margin: 0 0 10px 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">
           Rx - Prescribed Medications
@@ -118,11 +112,14 @@ export function generatePrescriptionPdf(appointment, mode = 'PATIENT') {
         ${medsHtml}
       </div>
 
-      <!-- Footer & Doctor Signature Line -->
-      <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 40px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
-        <div>
-          <p style="font-size: 11px; color: #94a3b8; margin: 0 0 4px 0;">This is a computer-generated medical record.</p>
-          <p style="font-size: 11px; color: #94a3b8; margin: 0;">Issued by Healthcare Appointment & Follow-up Manager</p>
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0;">
+        <div style="display: flex; align-items: center; gap: 14px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px 14px; border-radius: 8px;">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent('https://healthcareappointment.pages.dev/verify/' + appointment.id)}" alt="QR Verification" style="width: 64px; height: 64px; border-radius: 4px; border: 1px solid #cbd5e1;" />
+          <div>
+            <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #4338ca; letter-spacing: 0.5px; display: block;">Digital Verification Seal</span>
+            <span style="font-size: 11px; color: #334155; font-weight: 600; display: block; margin-top: 2px;">Scan to Verify Rx Authenticity</span>
+            <span style="font-size: 10px; color: #64748b; font-family: monospace;">UUID: ${appointment.id.slice(0, 18)}...</span>
+          </div>
         </div>
         <div style="text-align: center;">
           <div style="border-bottom: 1px solid #0f172a; width: 180px; margin-bottom: 6px; padding-bottom: 4px;">

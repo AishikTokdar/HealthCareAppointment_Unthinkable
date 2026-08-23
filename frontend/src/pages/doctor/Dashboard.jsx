@@ -7,7 +7,8 @@ import UrgencyBadge from '../../components/ui/UrgencyBadge';
 import Modal from '../../components/ui/Modal';
 import { doctorsApi } from '../../api/doctors.api';
 import { calendarApi } from '../../api/calendar.api';
-import { Calendar, User, Clock, CheckCircle2, ChevronRight, ShieldAlert } from 'lucide-react';
+import DrugLookupModal from '../../components/doctor/DrugLookupModal';
+import { Calendar, User, Clock, CheckCircle2, ChevronRight, ShieldAlert, Star, Search } from 'lucide-react';
 
 export default function DoctorDashboard() {
   const { user } = useContext(AuthContext);
@@ -16,7 +17,11 @@ export default function DoctorDashboard() {
   const [loading, setLoading] = useState(true);
   const [apiPending, setApiPending] = useState(false);
 
+  const ratedAppts = appointments.filter(a => a.rating);
+  const avgRating = ratedAppts.length ? (ratedAppts.reduce((sum, a) => sum + a.rating, 0) / ratedAppts.length).toFixed(1) : '5.0';
+
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showDrugLookup, setShowDrugLookup] = useState(false);
   const [leaveDate, setLeaveDate] = useState('');
   const [leaveReason, setLeaveReason] = useState('');
   const [submittingLeave, setSubmittingLeave] = useState(false);
@@ -90,9 +95,29 @@ export default function DoctorDashboard() {
               <h1>Welcome, {user?.name}</h1>
               <p>Your appointment schedule and patient briefings.</p>
             </div>
-            <button onClick={() => setShowLeaveModal(true)} className="btn btn-ghost">
-              <Calendar size={15} /> Request Leave
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setShowDrugLookup(true)} className="btn btn-secondary">
+                <Search size={15} /> Drug Reference
+              </button>
+              <button onClick={() => setShowLeaveModal(true)} className="btn btn-ghost">
+                <Calendar size={15} /> Request Leave
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="card mb-24" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, background: 'rgba(16, 185, 129, 0.04)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 10, background: 'rgba(245, 158, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Star size={22} fill="#fbbf24" color="#fbbf24" />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-main)' }}>Patient CSAT Score: {avgRating} / 5.0</div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Based on {ratedAppts.length} patient recovery feedback reviews</div>
+            </div>
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--success)' }}>
+            {appointments.filter(a => a.status === 'COMPLETED').length} Visits Completed
           </div>
         </div>
 
@@ -190,6 +215,8 @@ export default function DoctorDashboard() {
             </div>
           </form>
         </Modal>
+
+        <DrugLookupModal isOpen={showDrugLookup} onClose={() => setShowDrugLookup(false)} />
       </main>
     </div>
   );

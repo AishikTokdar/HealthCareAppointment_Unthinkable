@@ -2,7 +2,7 @@ const cron = require('node-cron');
 const prisma = require('../config/db');
 
 function startMedicationReminderJob() {
-  cron.schedule('0 * * * *', async () => {
+  cron.schedule('*/15 * * * *', async () => {
     try {
       const dueReminders = await prisma.medicationReminder.findMany({
         where: {

@@ -7,7 +7,7 @@ import UrgencyBadge from '../../components/ui/UrgencyBadge';
 import Modal from '../../components/ui/Modal';
 import { appointmentsApi } from '../../api/appointments.api';
 import { generatePrescriptionPdf } from '../../utils/generatePrescriptionPdf';
-import { ArrowLeft, User, Clock, Pill, AlertCircle, Send, MessageSquare, XCircle, Download } from 'lucide-react';
+import { ArrowLeft, User, Clock, Pill, AlertCircle, Send, MessageSquare, XCircle, Download, Star } from 'lucide-react';
 
 export default function PatientAppointmentDetail() {
   const { id } = useParams();
@@ -20,6 +20,11 @@ export default function PatientAppointmentDetail() {
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
 
+  const [rating, setRating] = useState(5);
+  const [feedback, setFeedback] = useState('');
+  const [submittingRating, setSubmittingRating] = useState(false);
+  const [ratingSuccess, setRatingSuccess] = useState(false);
+
   const [chatStatus, setChatStatus] = useState('NOT_STARTED');
   const [isDoctorOnline, setIsDoctorOnline] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -28,6 +33,19 @@ export default function PatientAppointmentDetail() {
   const [closingChat, setClosingChat] = useState(false);
 
   const [fetchError, setFetchError] = useState('');
+
+  const handleRate = async () => {
+    setSubmittingRating(true);
+    try {
+      await appointmentsApi.rate(id, { rating, feedback });
+      setRatingSuccess(true);
+      fetchDetail();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmittingRating(false);
+    }
+  };
 
   useEffect(() => { fetchDetail(); }, [id]);
 
@@ -259,7 +277,7 @@ export default function PatientAppointmentDetail() {
         </div>
 
         {appointment.visitNote && (
-          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ padding: 20 }}>
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="card mb-24" style={{ padding: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 className="section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Pill size={16} style={{ color: 'var(--success)' }} /> Visit Summary & Prescription
@@ -289,6 +307,61 @@ export default function PatientAppointmentDetail() {
                 </div>
               </div>
             )}
+          </motion.div>
+        )}
+
+        {appointment.status === 'COMPLETED' && (
+          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="card mb-24" style={{ padding: 20, border: '1px solid rgba(245, 158, 11, 0.3)', background: 'rgba(245, 158, 11, 0.04)' }}>
+            <h3 className="section-title mb-12" style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fbbf24' }}>
+              <Star size={16} fill="#fbbf24" /> Patient Recovery Outcome & CSAT Feedback
+            </h3>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14 }}>
+              How was your consultation experience and recovery progress with {appointment.doctor?.user?.name || 'your doctor'}?
+            </p>
+            
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {[1, 2, 3, 4, 5].map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setRating(s)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 4,
+                    transition: 'transform 0.15s ease'
+                  }}
+                >
+                  <Star size={24} fill={s <= (rating || appointment.rating || 5) ? '#fbbf24' : 'transparent'} color={s <= (rating || appointment.rating || 5) ? '#fbbf24' : '#6b7280'} />
+                </button>
+              ))}
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#fbbf24', marginLeft: 8, alignSelf: 'center' }}>
+                {rating || appointment.rating || 5} / 5 Stars
+              </span>
+            </div>
+
+            <textarea
+              className="input mb-14"
+              rows={2}
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              placeholder="Share recovery progress notes or feedback for your doctor..."
+            />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button
+                onClick={handleRate}
+                disabled={submittingRating}
+                className="btn btn-primary btn-sm"
+                style={{ background: '#f59e0b', borderColor: '#f59e0b', color: '#000' }}
+              >
+                {submittingRating ? 'Submitting...' : ratingSuccess ? 'Feedback Submitted ✓' : 'Submit Recovery Feedback'}
+              </button>
+              {appointment.rating && !ratingSuccess && (
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Previous Rating: {appointment.rating}★</span>
+              )}
+            </div>
           </motion.div>
         )}
 

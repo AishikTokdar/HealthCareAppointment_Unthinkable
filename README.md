@@ -1,4 +1,4 @@
-# Healthcare Appointment & Follow-up Manager
+﻿# Healthcare Appointment & Follow-up Manager
 
 A comprehensive full-stack healthcare appointment and follow-up management platform built with separate portals for Patients, Doctors, and Administrators. It allows patients to book slots and submit symptoms, provides doctors with pre-visit AI symptom briefings, facilitates doctor-initiated live chat consultations with online presence indicators, evaluates prescription safety with real-time AI drug interaction warnings, compiles 1-Click PDF clinical prescriptions, visualizes medical history timelines with Recharts analytics, and manages doctor leave approvals with automated conflict resolution.
 
@@ -88,7 +88,7 @@ flowchart TB
     CAL_MOD -->|Create / Update / Delete Events| GCAL
 ```
 
-> 📖 **Technical Architecture Deep-Dive**: For a detailed explanation of concurrency control, 10-minute slot holds, doctor leave conflict resolution, AI safety checks, and keep-alive background workers, read the complete [System Design Write-Up](system-design.md).
+> **Technical Architecture Deep-Dive**: For a detailed explanation of concurrency control, 10-minute slot holds, doctor leave conflict resolution, AI safety checks, and keep-alive background workers, read the complete [System Design Write-Up](system-design.md).
 
 ---
 
@@ -124,17 +124,17 @@ flowchart TB
 ## 3. Environment Variables Reference
 
 ### Backend (`backend/.env`)
-> **Note**: `DATABASE_URL` is the **only compulsory variable** required to start the server. `JWT_SECRET` is auto-generated if omitted. All external API integration keys (Gemini, Groq, Resend, Google Calendar) are optional and fall back gracefully if missing.
+> **Note**: `DATABASE_URL` and an AI LLM API Key (`GEMINI_API_KEY` or `GROQ_API_KEY`) are **compulsory variables** required to start the server. `JWT_SECRET` is auto-generated if omitted. Resend and Google Calendar keys are optional and fall back gracefully if missing.
 
 ```env
-# 🔴 COMPULSORY
+# COMPULSORY
 DATABASE_URL="postgresql://user:password@localhost:5432/healthcare_db?schema=public"
+GEMINI_API_KEY="your_gemini_api_key"
 
-# 🟢 OPTIONAL (Auto-generated or feature-specific fallbacks)
+# OPTIONAL (Auto-generated or feature-specific fallbacks)
+GROQ_API_KEY="your_groq_api_key"
 JWT_SECRET="your_jwt_secret_key_at_least_32_characters_long"
 FRONTEND_URL="http://localhost:5173"
-GEMINI_API_KEY="your_gemini_api_key"
-GROQ_API_KEY="your_groq_api_key"
 RESEND_API_KEY="your_resend_api_key"
 EMAIL_FROM="onboarding@resend.dev"
 GOOGLE_CLIENT_ID="your_gcp_client_id"
@@ -386,227 +386,322 @@ cd HealthCareAppointment
 
 ---
 
-## 6. Database Schema Overview
+## 6. Database Schema
 
-```prisma
-enum Role {
-  PATIENT
-  DOCTOR
-  ADMIN
-}
+### Enumerations
 
-enum AppointmentStatus {
-  PENDING
-  CONFIRMED
-  CANCELLED
-  COMPLETED
-}
+| Enum | Values |
+|:---|:---|
+| `Role` | `PATIENT`, `DOCTOR`, `ADMIN` |
+| `AppointmentStatus` | `PENDING`, `CONFIRMED`, `CANCELLED`, `COMPLETED` |
+| `ChatStatus` | `NOT_STARTED`, `ACTIVE`, `CLOSED` |
+| `LLMStatus` | `PENDING`, `SUCCESS`, `FAILED` |
+| `DoctorApprovalStatus` | `PENDING`, `APPROVED`, `REJECTED` |
+| `LeaveRequestStatus` | `PENDING`, `APPROVED`, `REJECTED` |
+| `NotificationType` | `BOOKING_CONFIRM`, `APPOINTMENT_REMINDER`, `CANCELLATION`, `LEAVE_CONFLICT`, `MED_REMINDER`, `DOCTOR_APPROVED`, `DOCTOR_REJECTED`, `LEAVE_REQUESTED`, `LEAVE_APPROVED`, `LEAVE_REJECTED` |
+| `NotificationStatus` | `QUEUED`, `SENT`, `FAILED` |
 
-enum ChatStatus {
-  NOT_STARTED
-  ACTIVE
-  CLOSED
-}
+### Tables
 
-enum LeaveRequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
+#### User
+| Column | Type | Notes |
+|:---|:---|:---|
+| `id` | `String (UUID)` | Primary key |
+| `email` | `String` | Unique |
+| `passwordHash` | `String` | bcrypt hashed |
+| `role` | `Role` | PATIENT / DOCTOR / ADMIN |
+| `name` | `String` | |
+| `phone` | `String?` | Optional |
+| `gcalTokens` | `Json?` | Google OAuth token store |
+| `createdAt` | `DateTime` | Auto-set |
 
-enum LLMStatus {
-  PENDING
-  SUCCESS
-  FAILED
-}
+#### DoctorProfile
+| Column | Type | Notes |
+|:---|:---|:---|
+| `id` | `String (UUID)` | Primary key |
+| `userId` | `String` | FK to User (unique, cascade) |
+| `specialisation` | `String` | |
+| `slotDuration` | `Int` | In minutes |
+| `workingHours` | `Json` | `{ monday: { start, end }, ... }` |
+| `bio` | `String?` | |
+| `avatarUrl` | `String?` | |
+| `approvalStatus` | `DoctorApprovalStatus` | Defaults PENDING |
+| `isActive` | `Boolean` | Defaults true |
 
-enum NotificationType {
-  BOOKING_CONFIRM
-  APPOINTMENT_REMINDER
-  CANCELLATION
-  LEAVE_CONFLICT
-  LEAVE_REQUESTED
-  LEAVE_APPROVED
-  MED_REMINDER
-  DOCTOR_APPROVED
-  DOCTOR_REJECTED
-}
+#### Appointment
+| Column | Type | Notes |
+|:---|:---|:---|
+| `id` | `String (UUID)` | Primary key |
+| `patientId` | `String` | FK to User |
+| `doctorId` | `String` | FK to DoctorProfile |
+| `startsAt` | `DateTime` | Slot start time |
+| `endsAt` | `DateTime` | Slot end time |
+| `status` | `AppointmentStatus` | Defaults PENDING |
+| `chatStatus` | `ChatStatus` | Defaults NOT_STARTED |
+| `holdExpiresAt` | `DateTime?` | 10-min pessimistic lock expiry |
+| `gcalEventId` | `String?` | Patient Calendar event ID |
+| `gcalDoctorEventId` | `String?` | Doctor Calendar event ID |
+| `rating` | `Int?` | 1-5 CSAT score |
+| `feedback` | `String?` | Patient recovery feedback text |
+| `ratedAt` | `DateTime?` | Feedback submission timestamp |
+| `createdAt` | `DateTime` | Auto-set |
+| **Unique** | `[doctorId, startsAt]` | Prevents double-booking |
 
-enum NotificationStatus {
-  QUEUED
-  SENT
-  FAILED
-}
+#### SymptomForm
+| Column | Type | Notes |
+|:---|:---|:---|
+| `id` | `String (UUID)` | Primary key |
+| `appointmentId` | `String` | FK to Appointment (unique) |
+| `rawSymptoms` | `String` | Patient-entered symptoms |
+| `urgency` | `String?` | LLM: Low / Medium / High |
+| `chiefComplaint` | `String?` | LLM-generated summary |
+| `suggestedQs` | `Json?` | LLM: 3 doctor questions |
+| `llmRawOutput` | `String?` | Raw LLM response |
+| `llmStatus` | `LLMStatus` | Defaults PENDING |
 
-enum DoctorApprovalStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
+#### VisitNote
+| Column | Type | Notes |
+|:---|:---|:---|
+| `id` | `String (UUID)` | Primary key |
+| `appointmentId` | `String` | FK to Appointment (unique) |
+| `clinicalNotes` | `String` | Doctor-entered notes |
+| `prescription` | `Json` | Array of `{ drug, dose, frequency }` |
+| `patientSummary` | `String?` | LLM-generated patient-friendly summary |
+| `llmStatus` | `LLMStatus` | Defaults PENDING |
 
-model User {
-  id              String               @id @default(uuid())
-  email           String               @unique
-  passwordHash    String
-  role            Role
-  name            String
-  phone           String?
-  gcalTokens      Json?
-  createdAt       DateTime             @default(now())
-  appointments    Appointment[]        @relation("PatientAppointments")
-  doctorProfile   DoctorProfile?
-  notifications   Notification[]
-  reminders       MedicationReminder[]
-  chatMessages    ChatMessage[]
-}
+#### MedicationReminder
+| Column | Type | Notes |
+|:---|:---|:---|
+| `id` | `String (UUID)` | Primary key |
+| `visitNoteId` | `String` | FK to VisitNote |
+| `patientId` | `String` | FK to User |
+| `drug` | `String` | Medication name |
+| `dose` | `String` | e.g. "500mg" |
+| `frequency` | `String` | e.g. "Twice daily" |
+| `nextRemindAt` | `DateTime` | Next scheduled reminder time |
+| `doneAt` | `DateTime?` | Completion timestamp |
 
-model DoctorProfile {
-  id             String               @id @default(uuid())
-  userId         String               @unique
-  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  specialisation String
-  slotDuration   Int
-  workingHours   Json
-  bio            String?
-  avatarUrl      String?
-  approvalStatus DoctorApprovalStatus @default(PENDING)
-  isActive       Boolean              @default(true)
-  appointments   Appointment[]
-  leaveDays      LeaveDay[]
-  leaveRequests  LeaveRequest[]
-}
+#### Notification
+| Column | Type | Notes |
+|:---|:---|:---|
+| `id` | `String (UUID)` | Primary key |
+| `userId` | `String` | FK to User |
+| `type` | `NotificationType` | Email template selector |
+| `status` | `NotificationStatus` | Defaults QUEUED |
+| `attempts` | `Int` | Retry counter |
+| `nextRetryAt` | `DateTime` | Exponential backoff timestamp |
+| `payload` | `Json` | Template data (subject, body, recipient) |
+| `sentAt` | `DateTime?` | Successful dispatch timestamp |
+| **Index** | `[status, nextRetryAt]` | Worker polling index |
 
-model LeaveDay {
-  id       String        @id @default(uuid())
-  doctorId String
-  doctor   DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  date     DateTime      @db.Date
-  reason   String?
+#### LeaveDay
+| Column | Type | Notes |
+|:---|:---|:---|
+| `id` | `String (UUID)` | Primary key |
+| `doctorId` | `String` | FK to DoctorProfile |
+| `date` | `DateTime (Date)` | Leave date |
+| `reason` | `String?` | Optional reason |
+| **Unique** | `[doctorId, date]` | Prevents duplicate leave entries |
 
-  @@unique([doctorId, date])
-}
+#### LeaveRequest
+| Column | Type | Notes |
+|:---|:---|:---|
+| `id` | `String (UUID)` | Primary key |
+| `doctorId` | `String` | FK to DoctorProfile |
+| `date` | `DateTime (Date)` | Requested leave date |
+| `reason` | `String?` | Optional reason |
+| `status` | `LeaveRequestStatus` | Defaults PENDING |
 
-model LeaveRequest {
-  id        String             @id @default(uuid())
-  doctorId  String
-  doctor    DoctorProfile      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  date      DateTime           @db.Date
-  reason    String?
-  status    LeaveRequestStatus @default(PENDING)
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-}
-
-model Appointment {
-  id                String            @id @default(uuid())
-  patientId         String
-  patient           User              @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Cascade)
-  doctorId          String
-  doctor            DoctorProfile     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  startsAt          DateTime
-  endsAt            DateTime
-  status            AppointmentStatus @default(PENDING)
-  holdExpiresAt     DateTime?
-  gcalEventId       String?
-  gcalDoctorEventId String?
-  chatStatus        ChatStatus        @default(NOT_STARTED)
-  patientLastSeen   DateTime?
-  doctorLastSeen    DateTime?
-  createdAt         DateTime          @default(now())
-  symptomForm       SymptomForm?
-  visitNote         VisitNote?
-  chatMessages      ChatMessage[]
-
-  @@unique([doctorId, startsAt])
-  @@index([patientId])
-  @@index([doctorId, startsAt])
-}
-
-model ChatMessage {
-  id            String      @id @default(uuid())
-  appointmentId String
-  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-  senderId      String
-  sender        User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
-  message       String
-  createdAt     DateTime    @default(now())
-}
-
-model SymptomForm {
-  id             String      @id @default(uuid())
-  appointmentId  String      @unique
-  appointment    Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-  rawSymptoms    String
-  urgency        String?
-  chiefComplaint String?
-  suggestedQs    Json?
-  llmRawOutput   String?
-  llmStatus      LLMStatus   @default(PENDING)
-  createdAt      DateTime    @default(now())
-}
-
-model VisitNote {
-  id             String               @id @default(uuid())
-  appointmentId  String               @unique
-  appointment    Appointment          @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-  clinicalNotes  String
-  prescription   Json
-  patientSummary String?
-  llmRawOutput   String?
-  llmStatus      LLMStatus            @default(PENDING)
-  createdAt      DateTime             @default(now())
-  reminders      MedicationReminder[]
-}
-
-model MedicationReminder {
-  id           String    @id @default(uuid())
-  visitNoteId  String
-  visitNote    VisitNote @relation(fields: [visitNoteId], references: [id], onDelete: Cascade)
-  patientId    String
-  patient      User      @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  drug         String
-  dose         String
-  frequency    String
-  nextRemindAt DateTime
-  doneAt       DateTime?
-}
-
-model Notification {
-  id          String             @id @default(uuid())
-  userId      String
-  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type        NotificationType
-  status      NotificationStatus @default(QUEUED)
-  attempts    Int                @default(0)
-  nextRetryAt DateTime           @default(now())
-  payload     Json
-  sentAt      DateTime?
-  createdAt   DateTime           @default(now())
-
-  @@index([status, nextRetryAt])
-}
-```
+#### ChatMessage
+| Column | Type | Notes |
+|:---|:---|:---|
+| `id` | `String (UUID)` | Primary key |
+| `appointmentId` | `String` | FK to Appointment |
+| `senderId` | `String` | FK to User |
+| `message` | `String` | Message content |
+| `createdAt` | `DateTime` | Auto-set |
+| **Index** | `[appointmentId]` | Chat polling index |
 
 ---
 
 ## 7. LLM Prompt Templates
 
-### Pre-Visit Symptoms Prompt
+### Pre-Visit Symptom Triage
 ```text
-Perform a clinical triage analysis on the following patient symptoms in clean Indian English clinical style. Classify urgency strictly into one of three categories: High, Medium, or Low. Return valid JSON only with keys "urgency", "chiefComplaint", and "suggestedQuestions". Symptoms: <symptoms>
+Perform a clinical triage analysis on the following patient symptoms in clean Indian English clinical style.
+Classify urgency strictly into one of three categories:
+- "High": Critical red-flag symptoms, severe pain, breathing issues, or acute distress.
+- "Medium": Moderate ongoing symptoms, infection signs, or discomfort requiring timely medical review.
+- "Low": Mild, chronic, routine checkup, or minor non-urgent symptoms.
+
+Return valid JSON only with keys:
+"urgency": ("Low" | "Medium" | "High"),
+"chiefComplaint": (concise 1-sentence summary of main symptom),
+"suggestedQuestions": (array of 3 targeted diagnostic questions for the doctor).
+
+Symptoms: <symptoms>
 ```
 
-### Post-Visit Clinical Notes Prompt
+**Fallback behavior**: If both Gemini and Groq are unavailable, the system applies a local keyword-matching rule engine. Red-flag terms (chest pain, breathing, seizure, unconscious, stroke, severe bleeding, anaphylaxis) automatically set urgency to `High`. Otherwise urgency defaults to `Medium` for descriptions over 30 characters, or `Low` for shorter ones.
+
+---
+
+### Post-Visit Patient Summary
 ```text
-Convert these clinical notes into a patient-friendly summary in clean Indian English with medication schedule and follow-up steps: <notes>. Prescription info: <prescriptionJSON>. Return valid JSON only with keys "patientSummary", "medicationSchedule", and "followUpSteps".
+Convert these clinical notes into a patient-friendly summary in clean Indian English with medication schedule
+and follow-up steps. Do NOT use markdown asterisks (* or **). Use clean plain text bullet points (â€¢) if needed.
+Clinical notes: <clinicalNotes>.
+Prescription info: <prescriptionJSON>.
+Return valid JSON only with keys "patientSummary", "medicationSchedule", and "followUpSteps".
 ```
 
-### Doctor AI Note Refiner Prompt
+**Fallback behavior**: If LLM is unavailable, the raw clinical notes are returned as `patientSummary`, and the prescription array is formatted as `Drug - Dose (Frequency)` strings for `medicationSchedule`.
+
+---
+
+### Doctor Message AI Refiner
 ```text
-Refine the rough doctor notes/draft into an empathetic, highly professional, clear, and clinically precise response in clean Indian English. Stick strictly to the patient's reported symptoms and diagnosis/treatment guidance. Doctor's rough draft: <draftText>
+You are an expert medical physician conducting a patient consultation.
+Refine the following rough doctor notes/draft into an empathetic, highly professional, clear, and clinically
+precise response in clean Indian English.
+
+STRICT INSTRUCTIONS:
+1. Stick strictly to the patient's reported symptoms and diagnosis/treatment guidance.
+2. Maintain an empathetic, authoritative medical tone.
+3. Do NOT use markdown symbols (such as *, **, #, etc.). Use clean plain text with bullet points (â€¢) if listing items.
+4. Do NOT include generic filler or meta comments. Output ONLY the polished message text.
+
+Doctor's rough draft: <draftText>
 ```
 
-### AI Drug Interaction Safety Analysis Prompt
+**Fallback behavior**: If LLM is unavailable, the original draft text is returned after stripping markdown symbols.
+
+---
+
+### AI Prescription Drug Safety Checker
 ```text
-Analyze the prescribed medication list for drug-drug interactions, contraindications, or dosage anomalies in clean Indian English clinical context. Return valid JSON only with keys "safetyStatus" (SAFE | WARNING | CRITICAL), "hasInteractions", "warnings", and "dosageAdvice". Prescribed Medications: <prescriptionJSON>
+Analyze the following prescribed medication list for drug-drug interactions, contraindications, or dosage
+anomalies in clean Indian English clinical context.
+Patient Symptoms/Complaint: "<symptoms>"
+Prescribed Medications: <prescriptionJSON>
+
+STRICT INSTRUCTIONS:
+Return valid JSON only with keys:
+"safetyStatus": ("SAFE" | "WARNING" | "CRITICAL"),
+"hasInteractions": boolean,
+"warnings": array of objects with keys { "severity": ("CRITICAL" | "MODERATE" | "INFO"), "drugPair": string,
+  "message": string, "recommendation": string },
+"dosageAdvice": string.
 ```
+
+**Fallback behavior**: If LLM is unavailable, a local clinical rule engine checks for high-risk drug pairs: Warfarin + NSAIDs/Aspirin (hemorrhage risk), PDE5 Inhibitors + Nitrates (fatal hypotension), and Fluoxetine + Tramadol (serotonin syndrome).
+
+---
+
+## 8. API Reference
+
+All endpoints are prefixed with `/api/v1`. Protected routes require `Authorization: Bearer <token>` header.
+
+### Authentication
+
+| Method | Endpoint | Auth | Description |
+|:---|:---|:---|:---|
+| `POST` | `/auth/register` | Public | Register a new patient or doctor account |
+| `POST` | `/auth/login` | Public | Login and receive a JWT token |
+| `GET` | `/auth/me` | Any | Return current authenticated user profile |
+
+---
+
+### Appointments
+
+| Method | Endpoint | Auth | Description |
+|:---|:---|:---|:---|
+| `POST` | `/appointments/hold` | PATIENT | Reserve a 10-minute slot hold |
+| `POST` | `/appointments/confirm` | PATIENT | Confirm a held slot into a booking |
+| `GET` | `/appointments` | PATIENT | List all patient appointments |
+| `GET` | `/appointments/:id` | PATIENT / DOCTOR | Get full appointment detail |
+| `PATCH` | `/appointments/:id/reschedule` | PATIENT | Reschedule a confirmed appointment |
+| `PATCH` | `/appointments/:id/cancel` | PATIENT / DOCTOR | Cancel an appointment |
+| `PATCH` | `/appointments/:id/complete` | DOCTOR | Mark appointment as completed |
+| `POST` | `/appointments/:id/rate` | PATIENT | Submit a 1-5 star CSAT recovery rating |
+| `POST` | `/appointments/:id/ai-refine` | DOCTOR | AI-refine a rough message draft |
+
+---
+
+### Symptoms
+
+| Method | Endpoint | Auth | Description |
+|:---|:---|:---|:---|
+| `POST` | `/symptoms/:appointmentId` | PATIENT | Submit symptom form; triggers LLM pre-visit triage |
+| `GET` | `/symptoms/:appointmentId` | PATIENT / DOCTOR | Retrieve the symptom form and AI triage result |
+
+---
+
+### Visits
+
+| Method | Endpoint | Auth | Description |
+|:---|:---|:---|:---|
+| `POST` | `/visits/:appointmentId` | DOCTOR | Submit clinical notes and prescription; triggers LLM post-visit summary |
+| `GET` | `/visits/:appointmentId` | PATIENT / DOCTOR | Retrieve visit note with patient-friendly summary |
+| `POST` | `/visits/check-safety` | DOCTOR | AI drug interaction safety check before submitting prescription |
+
+---
+
+### Doctors
+
+| Method | Endpoint | Auth | Description |
+|:---|:---|:---|:---|
+| `GET` | `/doctors` | Public | List all approved and active doctors |
+| `GET` | `/doctors/search` | Public | Filter doctors by specialisation or name |
+| `GET` | `/doctors/:id` | Public | Get a single doctor profile |
+| `GET` | `/doctors/:id/slots` | Public | Get available booking slots for a date |
+| `GET` | `/doctors/me/appointments` | DOCTOR | Get own appointment schedule |
+| `POST` | `/doctors/leave` | DOCTOR | Request a leave day |
+| `GET` | `/doctors/leave/requests` | DOCTOR | List own leave requests |
+
+---
+
+### Admin
+
+| Method | Endpoint | Auth | Description |
+|:---|:---|:---|:---|
+| `GET` | `/admin/doctors` | ADMIN | List all doctors with approval status |
+| `PATCH` | `/admin/doctors/:id/approve` | ADMIN | Approve a doctor account |
+| `PATCH` | `/admin/doctors/:id/reject` | ADMIN | Reject a doctor account |
+| `GET` | `/admin/leave-requests` | ADMIN | List all doctor leave requests |
+| `PATCH` | `/admin/leave-requests/:id/approve` | ADMIN | Approve a leave request and notify affected patients |
+| `PATCH` | `/admin/leave-requests/:id/reject` | ADMIN | Reject a leave request |
+| `GET` | `/admin/appointments` | ADMIN | View all appointments system-wide |
+| `GET` | `/admin/stats` | ADMIN | System usage statistics |
+
+---
+
+### Google Calendar
+
+| Method | Endpoint | Auth | Description |
+|:---|:---|:---|:---|
+| `GET` | `/calendar/auth-url` | PATIENT / DOCTOR | Generate Google OAuth 2.0 consent URL |
+| `GET` | `/calendar/callback` | Public | Handle OAuth callback and store tokens |
+| `GET` | `/calendar/status` | PATIENT / DOCTOR | Check if Calendar is connected |
+| `DELETE` | `/calendar/disconnect` | PATIENT / DOCTOR | Revoke Calendar access |
+
+---
+
+### Chat (Live Consultation)
+
+| Method | Endpoint | Auth | Description |
+|:---|:---|:---|:---|
+| `POST` | `/appointments/:id/chat/start` | DOCTOR | Open a live consultation chat session |
+| `POST` | `/appointments/:id/chat/close` | DOCTOR | Close the chat session |
+| `POST` | `/appointments/:id/chat/heartbeat` | PATIENT / DOCTOR | Update last-seen presence timestamp |
+| `POST` | `/appointments/:id/chat/messages` | PATIENT / DOCTOR | Send a message |
+| `GET` | `/appointments/:id/chat/messages` | PATIENT / DOCTOR | Poll for new messages |
+
+---
+
+### Health
+
+| Method | Endpoint | Auth | Description |
+|:---|:---|:---|:---|
+| `GET` | `/health` | Public | Server liveness check; returns `{ status: "ok" }` |
+
