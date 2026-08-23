@@ -1,4 +1,4 @@
-﻿# Healthcare Appointment & Follow-up Manager
+# Healthcare Appointment & Follow-up Manager
 
 A comprehensive full-stack healthcare appointment and follow-up management platform built with separate portals for Patients, Doctors, and Administrators. It allows patients to book slots and submit symptoms, provides doctors with pre-visit AI symptom briefings, facilitates doctor-initiated live chat consultations with online presence indicators, evaluates prescription safety with real-time AI drug interaction warnings, compiles 1-Click PDF clinical prescriptions, visualizes medical history timelines with Recharts analytics, and manages doctor leave approvals with automated conflict resolution.
 
@@ -6,6 +6,17 @@ A comprehensive full-stack healthcare appointment and follow-up management platf
 - **Frontend URL**: [https://healthcareappointment.pages.dev/](https://healthcareappointment.pages.dev/)
 - **Backend URL**: [https://healthcareappointment.onrender.com/](https://healthcareappointment.onrender.com/)
 - **System Design Architecture Write-Up**: [system-design.md](system-design.md)
+
+---
+
+### Demo Test Credentials
+
+| Role | Email | Password | Access Portal |
+|:---|:---|:---|:---|
+| **Admin** | `admin@clinic.com` | `AdminPassword123!` | System Admin Portal |
+| **Doctor** | `doctor@clinic.com` | `123456` | Doctor Clinical Portal |
+| **Doctor (Aarav)** | `aarav@clinic.in` | `123456` | Doctor Clinical Portal |
+| **Patient** | `patient@clinic.com` | `123456` | Patient Booking Portal |
 
 ---
 
