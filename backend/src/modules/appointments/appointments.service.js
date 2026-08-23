@@ -1,6 +1,6 @@
 const prisma = require('../../config/db');
 const { generatePreVisitSummary } = require('../../services/llm');
-const { createCalendarEvent, deleteCalendarEvent } = require('../../services/calendar');
+const { createCalendarEvent, deleteCalendarEvent, updateCalendarEvent } = require('../../services/calendar');
 
 const HOLD_DURATION_MS = 10 * 60 * 1000;
 const MAX_ACTIVE_HOLDS = 3;
@@ -350,6 +350,7 @@ async function rescheduleAppointment(user, appointmentId, newStartsAtIso) {
     }
   });
 
+  const oldStartsAt = appt.startsAt;
   const durationMs = appt.doctor.slotDuration * 60 * 1000;
   const newEndsAt = new Date(newStartsAt.getTime() + durationMs);
 
@@ -361,6 +362,51 @@ async function rescheduleAppointment(user, appointmentId, newStartsAtIso) {
       status: 'CONFIRMED'
     }
   });
+
+  await prisma.notification.create({
+    data: {
+      userId: appt.doctor.userId,
+      type: 'RESCHEDULE_DOCTOR_ALERT',
+      payload: {
+        doctorName: appt.doctor.user.name,
+        patientName: appt.patient.name,
+        oldStartsAt: oldStartsAt,
+        newStartsAt: newStartsAt,
+        newEndsAt: newEndsAt
+      }
+    }
+  });
+
+  await prisma.notification.create({
+    data: {
+      userId: appt.patientId,
+      type: 'RESCHEDULE_CONFIRM',
+      payload: {
+        doctorName: appt.doctor.user.name,
+        patientName: appt.patient.name,
+        oldStartsAt: oldStartsAt,
+        newStartsAt: newStartsAt,
+        newEndsAt: newEndsAt
+      }
+    }
+  });
+
+  const eventDetails = {
+    summary: `Medical Appointment - Dr. ${appt.doctor.user.name}`,
+    description: `Rescheduled healthcare appointment with Dr. ${appt.doctor.user.name} (${appt.doctor.specialisation}).`,
+    startsAt: newStartsAt,
+    endsAt: newEndsAt
+  };
+
+  if (appt.gcalEventId && appt.patient.gcalTokens) {
+    await updateCalendarEvent(appt.patient.gcalTokens, appt.gcalEventId, eventDetails);
+  }
+  if (appt.gcalDoctorEventId && appt.doctor.user.gcalTokens) {
+    await updateCalendarEvent(appt.doctor.user.gcalTokens, appt.gcalDoctorEventId, {
+      ...eventDetails,
+      summary: `Patient Consultation - ${appt.patient.name}`
+    });
+  }
 
   return updated;
 }

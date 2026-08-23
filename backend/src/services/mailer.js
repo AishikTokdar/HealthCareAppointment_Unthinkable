@@ -10,6 +10,8 @@ const doctorLeaveApproved = require('./templates/doctorLeaveApproved');
 const adminLeaveApproved = require('./templates/adminLeaveApproved');
 const doctorLeaveRejected = require('./templates/doctorLeaveRejected');
 const doctorLeaveScheduled = require('./templates/doctorLeaveScheduled');
+const rescheduleDoctorAlert = require('./templates/rescheduleDoctorAlert');
+const rescheduleConfirm = require('./templates/rescheduleConfirm');
 
 const templateMap = {
   BOOKING_CONFIRM: bookingConfirmation,
@@ -24,7 +26,9 @@ const templateMap = {
   LEAVE_REQUESTED: (payload) => ({
     subject: `[ADMIN ALERT] New Doctor Leave Request from ${payload.doctorName}`,
     html: `<div style="font-family: sans-serif; background: #080c14; color: #f1f5f9; padding: 32px; border-radius: 16px;"><h3 style="color:#7c5cfc;">New Doctor Leave Request</h3><p>${payload.doctorName} requested leave for <strong>${payload.leaveDate}</strong>.</p><p>Reason: ${payload.reason || 'N/A'}</p><p>Please review and approve in Admin Portal.</p></div>`
-  })
+  }),
+  RESCHEDULE_DOCTOR_ALERT: rescheduleDoctorAlert,
+  RESCHEDULE_CONFIRM: rescheduleConfirm
 };
 
 async function sendNotification(notificationRecord, userEmail) {

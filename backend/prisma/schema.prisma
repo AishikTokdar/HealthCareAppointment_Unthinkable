@@ -43,6 +43,8 @@ enum NotificationType {
   LEAVE_REQUESTED
   LEAVE_APPROVED
   LEAVE_REJECTED
+  RESCHEDULE_DOCTOR_ALERT
+  RESCHEDULE_CONFIRM
 }
 
 enum NotificationStatus {
