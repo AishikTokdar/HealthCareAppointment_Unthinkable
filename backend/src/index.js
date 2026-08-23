@@ -34,6 +34,7 @@ const startNotificationWorker = require('./jobs/notificationWorker');
 const startHoldExpiryJob = require('./jobs/holdExpiry');
 const startAppointmentReminderJob = require('./jobs/appointmentReminder');
 const startMedicationReminderJob = require('./jobs/medicationReminder');
+const startKeepAliveJob = require('./jobs/keepAlive');
 
 const app = express();
 
@@ -68,6 +69,7 @@ startNotificationWorker();
 startHoldExpiryJob();
 startAppointmentReminderJob();
 startMedicationReminderJob();
+startKeepAliveJob();
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

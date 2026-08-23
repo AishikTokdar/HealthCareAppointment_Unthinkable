@@ -2,6 +2,10 @@
 
 A comprehensive full-stack healthcare appointment and follow-up management platform built with separate portals for Patients, Doctors, and Administrators. It allows patients to book slots and submit symptoms, provides doctors with pre-visit AI symptom briefings, facilitates doctor-initiated live chat consultations with online presence indicators, evaluates prescription safety with real-time AI drug interaction warnings, compiles 1-Click PDF clinical prescriptions, visualizes medical history timelines with Recharts analytics, and manages doctor leave approvals with automated conflict resolution.
 
+### Live Deployment URLs
+- **Frontend URL**: [https://healthcareappointment.pages.dev/](https://healthcareappointment.pages.dev/)
+- **Backend URL**: [https://healthcareappointment.onrender.com/](https://healthcareappointment.onrender.com/)
+
 ---
 
 ## 1. System Architecture Diagram
@@ -117,9 +121,15 @@ flowchart TB
 ## 3. Environment Variables Reference
 
 ### Backend (`backend/.env`)
+> **Note**: `DATABASE_URL` is the **only compulsory variable** required to start the server. `JWT_SECRET` is auto-generated if omitted. All external API integration keys (Gemini, Groq, Resend, Google Calendar) are optional and fall back gracefully if missing.
+
 ```env
+# 🔴 COMPULSORY
 DATABASE_URL="postgresql://user:password@localhost:5432/healthcare_db?schema=public"
+
+# 🟢 OPTIONAL (Auto-generated or feature-specific fallbacks)
 JWT_SECRET="your_jwt_secret_key_at_least_32_characters_long"
+FRONTEND_URL="http://localhost:5173"
 GEMINI_API_KEY="your_gemini_api_key"
 GROQ_API_KEY="your_groq_api_key"
 RESEND_API_KEY="your_resend_api_key"
@@ -127,7 +137,6 @@ EMAIL_FROM="onboarding@resend.dev"
 GOOGLE_CLIENT_ID="your_gcp_client_id"
 GOOGLE_CLIENT_SECRET="your_gcp_client_secret"
 GOOGLE_REDIRECT_URI="http://localhost:5000/api/v1/calendar/callback"
-FRONTEND_URL="http://localhost:5173"
 ADMIN_EMAIL="admin@clinic.com"
 ADMIN_PASSWORD="AdminPassword123!"
 PORT=5000
@@ -174,9 +183,8 @@ cd HealthCareAppointment
    cp .env.example .env
    ```
 
-4. Open `.env` in your code editor and populate key variables:
+4. Open `.env` in your code editor and populate your connection string:
    - `DATABASE_URL`: Your PostgreSQL connection string.
-   - `JWT_SECRET`: Set a secure secret key.
    - *(Optional for basic local testing)* `GEMINI_API_KEY`, `GROQ_API_KEY`, `RESEND_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
 
 5. Run Prisma Database Migrations:
@@ -231,7 +239,7 @@ cd HealthCareAppointment
 
 ## 5. Detailed Production Deployment Instructions
 
-### Step 1: Acquire External Service API Keys & OAuth Credentials
+### Step 1: Acquire External Service API Keys & OAuth Credentials (Optional)
 
 #### A. Google Gemini 1.5 Flash API Key
 1. Visit [Google AI Studio](https://aistudio.google.com).
@@ -284,65 +292,45 @@ cd HealthCareAppointment
 
 ### Step 3: Backend Deployment Options
 
-#### Option A: Deploying Backend on Render (Recommended)
+#### Option A: Deploying Backend on Render (Recommended - Free Tier Friendly)
 1. Sign up at [Render Console](https://dashboard.render.com).
 2. Click **New +** -> **Web Service** -> Connect your GitHub repository.
 3. Configure settings:
    - **Name**: `healthcare-appointment-backend`
    - **Root Directory**: `backend`
    - **Environment**: `Node`
-   - **Build Command**:
+   - **Build Command** *(Includes zero-shell automated admin seeding)*:
      ```bash
-     npm install && npx prisma generate && npx prisma migrate deploy
+     npm install && npx prisma generate && npx prisma migrate deploy && node scripts/seed-admin.js
      ```
    - **Start Command**:
      ```bash
      npm start
      ```
 4. Set Environment Variables:
-   - `DATABASE_URL` = Your Neon connection string
-   - `JWT_SECRET` = Random 32+ char string
-   - `GEMINI_API_KEY` = Google AI Studio Key
-   - `GROQ_API_KEY` = Groq Console Key
-   - `RESEND_API_KEY` = Resend Email API Key
+   - `DATABASE_URL` = Your Neon connection string *(Compulsory)*
+   - `JWT_SECRET` = *(Optional, auto-generated if omitted)*
+   - `GEMINI_API_KEY` = Google AI Studio Key *(Optional)*
+   - `GROQ_API_KEY` = Groq Console Key *(Optional)*
+   - `RESEND_API_KEY` = Resend Email API Key *(Optional)*
    - `EMAIL_FROM` = `onboarding@resend.dev`
-   - `GOOGLE_CLIENT_ID` = GCP OAuth Client ID
-   - `GOOGLE_CLIENT_SECRET` = GCP OAuth Client Secret
-   - `GOOGLE_REDIRECT_URI` = `https://healthcare-appointment-backend.onrender.com/api/v1/calendar/callback`
-   - `FRONTEND_URL` = Your live frontend URL (Vercel, Cloudflare Pages, or GitHub Pages)
-   - `ADMIN_EMAIL` = `admin@clinic.com`
-   - `ADMIN_PASSWORD` = `AdminPassword123!`
+   - `FRONTEND_URL` = `https://healthcare-appointment-frontend.pages.dev`
    - `NODE_ENV` = `production`
-5. Click **Create Web Service**. Once live, navigate to Render **Shell** and execute:
-   ```bash
-   node scripts/seed-admin.js
-   ```
+5. Click **Create Web Service**. Render will build the service and automatically seed your default admin account without requiring shell access!
 
 #### Option B: Deploying Backend on Railway
 1. Register at [Railway Console](https://railway.app).
 2. Click **New Project** -> **Deploy from GitHub repo** -> Select repository.
 3. Set **Root Directory** to `backend`.
 4. Add Environment Variables under **Variables** tab matching the backend table.
-5. Set Build Command: `npm install && npx prisma generate && npx prisma migrate deploy`.
+5. Set Build Command: `npm install && npx prisma generate && npx prisma migrate deploy && node scripts/seed-admin.js`.
 6. Set Start Command: `npm start`.
 
 ---
 
 ### Step 4: Frontend Deployment Options
 
-#### Option A: Deploying Frontend on Vercel (Recommended)
-1. Register/Log in at [Vercel Console](https://vercel.com).
-2. Click **Add New...** -> **Project** -> Import your GitHub repository.
-3. Configure deployment options:
-   - **Framework Preset**: **Vite**
-   - **Root Directory**: Select `frontend`
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-4. Set Environment Variable:
-   - `VITE_API_BASE_URL` = `https://healthcare-appointment-backend.onrender.com` (Your backend URL)
-5. Click **Deploy**. Vercel will automatically process SPA routing rewrites via `frontend/vercel.json`.
-
-#### Option B: Deploying Frontend on Cloudflare Pages (`pages.dev`)
+#### Option A: Deploying Frontend on Cloudflare Pages (`pages.dev`) (Recommended)
 1. Log in to [Cloudflare Dashboard](https://dash.cloudflare.com).
 2. Navigate to **Workers & Pages** -> **Create application** -> **Pages** -> **Connect to Git**.
 3. Select your GitHub repository and branch (`main`).
@@ -354,8 +342,20 @@ cd HealthCareAppointment
    - **Build Output Directory**: `dist`
 5. Add Environment Variable:
    - Variable name: `VITE_API_BASE_URL`
-   - Value: `https://healthcare-appointment-backend.onrender.com`
+   - Value: `https://healthcare-appointment-backend.onrender.com` (Your Render backend URL)
 6. Click **Save and Deploy**. Cloudflare Pages automatically handles client-side React Router navigation via `frontend/public/_redirects` (`/* /index.html 200`). Your live site will be served on `https://healthcare-appointment-frontend.pages.dev`.
+
+#### Option B: Deploying Frontend on Vercel
+1. Register/Log in at [Vercel Console](https://vercel.com).
+2. Click **Add New...** -> **Project** -> Import your GitHub repository.
+3. Configure deployment options:
+   - **Framework Preset**: **Vite**
+   - **Root Directory**: Select `frontend`
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+4. Set Environment Variable:
+   - `VITE_API_BASE_URL` = `https://healthcare-appointment-backend.onrender.com` (Your backend URL)
+5. Click **Deploy**. Vercel will automatically process SPA routing rewrites via `frontend/vercel.json`.
 
 #### Option C: Deploying Frontend on GitHub Pages
 1. Navigate to the `frontend` directory:
