@@ -2,9 +2,10 @@
 
 A comprehensive full-stack healthcare appointment and follow-up management platform built with separate portals for Patients, Doctors, and Administrators. It allows patients to book slots and submit symptoms, provides doctors with pre-visit AI symptom briefings, facilitates doctor-initiated live chat consultations with online presence indicators, evaluates prescription safety with real-time AI drug interaction warnings, compiles 1-Click PDF clinical prescriptions, visualizes medical history timelines with Recharts analytics, and manages doctor leave approvals with automated conflict resolution.
 
-### Live Deployment URLs
+### Quick Links & Deployment URLs
 - **Frontend URL**: [https://healthcareappointment.pages.dev/](https://healthcareappointment.pages.dev/)
 - **Backend URL**: [https://healthcareappointment.onrender.com/](https://healthcareappointment.onrender.com/)
+- **System Design Architecture Write-Up**: [system-design.md](system-design.md)
 
 ---
 
@@ -86,6 +87,8 @@ flowchart TB
 
     CAL_MOD -->|Create / Update / Delete Events| GCAL
 ```
+
+> 📖 **Technical Architecture Deep-Dive**: For a detailed explanation of concurrency control, 10-minute slot holds, doctor leave conflict resolution, AI safety checks, and keep-alive background workers, read the complete [System Design Write-Up](system-design.md).
 
 ---
 
@@ -283,7 +286,8 @@ cd HealthCareAppointment
 ### Step 2: Database Setup (Neon PostgreSQL)
 1. Sign up for a free account at [Neon Database Console](https://console.neon.tech).
 2. Click **Create Project**, name it `healthcare-appointment-db`, and select PostgreSQL version 16.
-3. Locate **Connection Details** -> **Prisma / Direct Connection** mode.
+3. Locate **Connection Details**. Toggle the mode selector to **Direct Connection** (or ensure host does not contain `-pooler`).
+   > **Important Note for Neon + Prisma**: Pooled URLs (`-pooler`) do not support PostgreSQL advisory locks used by `migrate deploy`. Use the **Direct Connection URL** for `DATABASE_URL` or use `npx prisma db push` in your build command.
 4. Copy the connection URL:
    `postgresql://username:password@ep-cool-name-123456.us-east-2.aws.neon.tech/healthcare-db?sslmode=require`
 5. Keep this string ready for your backend `DATABASE_URL`.
@@ -299,31 +303,31 @@ cd HealthCareAppointment
    - **Name**: `healthcare-appointment-backend`
    - **Root Directory**: `backend`
    - **Environment**: `Node`
-   - **Build Command** *(Includes zero-shell automated admin seeding)*:
+   - **Build Command** *(Includes pooler-safe DB sync and zero-shell admin seeding)*:
      ```bash
-     npm install && npx prisma generate && npx prisma migrate deploy && node scripts/seed-admin.js
+     npm install && npx prisma generate && npx prisma db push && node scripts/seed-admin.js
      ```
    - **Start Command**:
      ```bash
      npm start
      ```
 4. Set Environment Variables:
-   - `DATABASE_URL` = Your Neon connection string *(Compulsory)*
+   - `DATABASE_URL` = Your Neon Direct connection string *(Compulsory)*
    - `JWT_SECRET` = *(Optional, auto-generated if omitted)*
    - `GEMINI_API_KEY` = Google AI Studio Key *(Optional)*
    - `GROQ_API_KEY` = Groq Console Key *(Optional)*
    - `RESEND_API_KEY` = Resend Email API Key *(Optional)*
    - `EMAIL_FROM` = `onboarding@resend.dev`
-   - `FRONTEND_URL` = `https://healthcare-appointment-frontend.pages.dev`
+   - `FRONTEND_URL` = `https://healthcareappointment.pages.dev`
    - `NODE_ENV` = `production`
-5. Click **Create Web Service**. Render will build the service and automatically seed your default admin account without requiring shell access!
+5. Click **Create Web Service**. Render will build the service, sync your database schema, and automatically seed your default admin account without requiring shell access!
 
 #### Option B: Deploying Backend on Railway
 1. Register at [Railway Console](https://railway.app).
 2. Click **New Project** -> **Deploy from GitHub repo** -> Select repository.
 3. Set **Root Directory** to `backend`.
 4. Add Environment Variables under **Variables** tab matching the backend table.
-5. Set Build Command: `npm install && npx prisma generate && npx prisma migrate deploy && node scripts/seed-admin.js`.
+5. Set Build Command: `npm install && npx prisma generate && npx prisma db push && node scripts/seed-admin.js`.
 6. Set Start Command: `npm start`.
 
 ---
