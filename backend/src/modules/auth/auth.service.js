@@ -168,9 +168,11 @@ async function getMe(userId) {
     take: 10
   });
 
+  const { gcalTokens, ...safeUser } = user;
+
   return {
-    ...user,
-    hasGcalConnected: !!user.gcalTokens,
+    ...safeUser,
+    hasGcalConnected: !!gcalTokens,
     notifications
   };
 }

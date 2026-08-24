@@ -18,6 +18,9 @@ A comprehensive full-stack healthcare appointment and follow-up management platf
 | **Doctor (Aarav)** | `aarav@clinic.in` | `123456` | Doctor Clinical Portal |
 | **Patient** | `patient@clinic.com` | `123456` | Patient Booking Portal |
 
+> [!WARNING]
+> **Google Calendar OAuth Authorization Notice**: Since the Google Cloud OAuth app is configured in Testing Mode, Google restricts authorization strictly to pre-registered test user emails explicitly authorized in the Google Cloud Console. Connecting Google Calendar with an unauthorized third-party Gmail address will return an `access_denied` error from Google. Please test calendar synchronization using the pre-configured test account credentials provided above.
+
 ---
 
 ## 1. System Architecture Diagram

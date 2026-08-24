@@ -27,6 +27,7 @@ export default function DoctorAppointmentDetail() {
   const [closingChat, setClosingChat] = useState(false);
   const [sendingMsg, setSendingMsg] = useState(false);
   const [refiningAi, setRefiningAi] = useState(false);
+  const [completingVisit, setCompletingVisit] = useState(false);
   const [fetchError, setFetchError] = useState('');
 
   useEffect(() => { fetchDetail(); }, [id]);

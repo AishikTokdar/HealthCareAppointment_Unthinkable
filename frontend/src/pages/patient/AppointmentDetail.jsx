@@ -365,7 +365,7 @@ export default function PatientAppointmentDetail() {
                 className="btn btn-primary btn-sm"
                 style={{ background: '#f59e0b', borderColor: '#f59e0b', color: '#000' }}
               >
-                {submittingRating ? 'Submitting...' : ratingSuccess ? 'Feedback Submitted ✓' : 'Submit Recovery Feedback'}
+                {submittingRating ? 'Submitting...' : ratingSuccess ? 'Feedback Submitted' : 'Submit Recovery Feedback'}
               </button>
               {appointment.rating && !ratingSuccess && (
                 <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Previous Rating: {appointment.rating}★</span>

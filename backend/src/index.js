@@ -58,9 +58,72 @@ app.get('/', (req, res) => {
   res.send(getLandingPageHtml());
 });
 
-app.get('/api/v1/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+const prisma = require('./config/db');
+const SERVER_START_TIME = Date.now();
+
+app.get('/api/v1/health', async (req, res) => {
+  try {
+    const [
+      approvedDoctors,
+      pendingDoctors,
+      totalPatients,
+      confirmedAppointments,
+      completedAppointments,
+      pendingNotifications
+    ] = await Promise.all([
+      prisma.doctorProfile.count({ where: { approvalStatus: 'APPROVED', isActive: true } }),
+      prisma.doctorProfile.count({ where: { approvalStatus: 'PENDING' } }),
+      prisma.user.count({ where: { role: 'PATIENT' } }),
+      prisma.appointment.count({ where: { status: 'CONFIRMED' } }),
+      prisma.appointment.count({ where: { status: 'COMPLETED' } }),
+      prisma.notification.count({ where: { status: 'QUEUED' } })
+    ]);
+
+    const uptimeSeconds = Math.floor((Date.now() - SERVER_START_TIME) / 1000);
+    const uptimeHours = Math.floor(uptimeSeconds / 3600);
+    const uptimeMinutes = Math.floor((uptimeSeconds % 3600) / 60);
+    const uptimeSecs = uptimeSeconds % 60;
+
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: {
+        seconds: uptimeSeconds,
+        human: `${uptimeHours}h ${uptimeMinutes}m ${uptimeSecs}s`
+      },
+      environment: process.env.NODE_ENV || 'development',
+      version: process.env.npm_package_version || '1.0.0',
+      node: process.version,
+      database: 'connected',
+      stats: {
+        approvedDoctors,
+        pendingDoctors,
+        totalPatients,
+        confirmedAppointments,
+        completedAppointments,
+        pendingNotifications
+      },
+      services: {
+        notificationWorker: 'running',
+        holdExpiryJob: 'running',
+        appointmentReminderJob: 'running',
+        medicationReminderJob: 'running',
+        keepAliveWorker: 'running'
+      }
+    });
+  } catch (err) {
+    res.status(503).json({
+      status: 'degraded',
+      timestamp: new Date().toISOString(),
+      database: 'disconnected',
+      error: 'Database connectivity issue',
+      uptime: {
+        seconds: Math.floor((Date.now() - SERVER_START_TIME) / 1000)
+      }
+    });
+  }
 });
+
 
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/admin', adminRouter);

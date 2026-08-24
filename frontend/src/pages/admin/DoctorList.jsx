@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import Sidebar from '../../components/layout/Sidebar';
 import Modal from '../../components/ui/Modal';
 import { adminApi } from '../../api/admin.api';
-import { User, Trash2, UserPlus, CheckCircle, Check, X, Clock, Plus } from 'lucide-react';
+import { User, Trash2, UserPlus, CheckCircle, Check, X, Clock, Plus, Star } from 'lucide-react';
 
 export default function DoctorList() {
   const [doctors, setDoctors] = useState([]);
@@ -146,6 +146,9 @@ export default function DoctorList() {
             {doctors.map((doc) => {
               const cleanName = (doc.user?.name || '').replace(/^Dr\.?\s+/i, '');
               const initials = cleanName.split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+              const ratings = doc.appointments?.filter(a => a.rating) || [];
+              const avgRating = ratings.length ? (ratings.reduce((sum, a) => sum + a.rating, 0) / ratings.length).toFixed(1) : null;
+
               return (
                 <motion.div key={doc.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="card" style={{ padding: 24 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
@@ -159,6 +162,26 @@ export default function DoctorList() {
                         {doc.approvalStatus}
                       </span>
                     </div>
+                  </div>
+
+                  <div style={{ margin: '12px 0', padding: '10px 12px', background: 'rgba(245, 158, 11, 0.06)', borderRadius: 8, border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Star size={14} fill="#fbbf24" /> CSAT: {avgRating ? `${avgRating} / 5.0` : 'No Ratings Yet'}
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                        {ratings.length} Review{ratings.length === 1 ? '' : 's'}
+                      </span>
+                    </div>
+                    {ratings.length > 0 && (
+                      <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 90, overflowY: 'auto' }}>
+                        {ratings.map(r => (
+                          <div key={r.id} style={{ fontSize: 11, color: 'var(--text-secondary)', background: 'var(--bg-card)', padding: '4px 8px', borderRadius: 4, border: '1px solid var(--border-color)' }}>
+                            <strong style={{ color: 'var(--text-main)' }}>{r.patient?.name || 'Patient'}</strong>: {'★'.repeat(r.rating)} - "{r.feedback || 'No written text'}"
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="mb-16">

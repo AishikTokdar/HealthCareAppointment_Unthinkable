@@ -418,13 +418,36 @@ async function rescheduleAppointment(user, appointmentId, newStartsAtIso) {
     endsAt: newEndsAt
   };
 
-  if (appt.gcalEventId && appt.patient.gcalTokens) {
-    await updateCalendarEvent(appt.patient.gcalTokens, appt.gcalEventId, eventDetails);
+  let updatedGcalId = appt.gcalEventId;
+  let updatedGcalDoctorId = appt.gcalDoctorEventId;
+
+  if (appt.patient.gcalTokens) {
+    if (appt.gcalEventId) {
+      await updateCalendarEvent(appt.patient.gcalTokens, appt.gcalEventId, eventDetails);
+    } else {
+      updatedGcalId = await createCalendarEvent(appt.patient.gcalTokens, eventDetails);
+    }
   }
-  if (appt.gcalDoctorEventId && appt.doctor.user.gcalTokens) {
-    await updateCalendarEvent(appt.doctor.user.gcalTokens, appt.gcalDoctorEventId, {
+
+  if (appt.doctor.user.gcalTokens) {
+    const docEventDetails = {
       ...eventDetails,
       summary: `Patient Consultation - ${appt.patient.name}`
+    };
+    if (appt.gcalDoctorEventId) {
+      await updateCalendarEvent(appt.doctor.user.gcalTokens, appt.gcalDoctorEventId, docEventDetails);
+    } else {
+      updatedGcalDoctorId = await createCalendarEvent(appt.doctor.user.gcalTokens, docEventDetails);
+    }
+  }
+
+  if (updatedGcalId !== appt.gcalEventId || updatedGcalDoctorId !== appt.gcalDoctorEventId) {
+    await prisma.appointment.update({
+      where: { id: appointmentId },
+      data: {
+        gcalEventId: updatedGcalId,
+        gcalDoctorEventId: updatedGcalDoctorId
+      }
     });
   }
 
@@ -460,7 +483,11 @@ async function cancelAppointment(user, appointmentId, reason) {
 
   const cancelled = await prisma.appointment.update({
     where: { id: appointmentId },
-    data: { status: 'CANCELLED' }
+    data: {
+      status: 'CANCELLED',
+      gcalEventId: null,
+      gcalDoctorEventId: null
+    }
   });
 
   await prisma.notification.create({

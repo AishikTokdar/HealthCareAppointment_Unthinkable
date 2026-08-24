@@ -238,7 +238,7 @@ async function addDoctorLeave(doctorId, dateString, reason) {
       await deleteCalendarEvent(appt.patient.gcalTokens, appt.gcalEventId);
     }
     if (appt.gcalDoctorEventId && doctorProfile.user.gcalTokens) {
-      await deleteCalendarEvent(doctorProfile.user.gcalTokens, doctorProfile.user.gcalDoctorEventId);
+      await deleteCalendarEvent(doctorProfile.user.gcalTokens, appt.gcalDoctorEventId);
     }
   }
 
@@ -382,7 +382,7 @@ async function approveLeaveRequest(requestId) {
       await deleteCalendarEvent(appt.patient.gcalTokens, appt.gcalEventId);
     }
     if (appt.gcalDoctorEventId && request.doctor.user.gcalTokens) {
-      await deleteCalendarEvent(request.doctor.user.gcalTokens, request.doctor.user.gcalDoctorEventId);
+      await deleteCalendarEvent(request.doctor.user.gcalTokens, appt.gcalDoctorEventId);
     }
   }
 
@@ -430,7 +430,11 @@ async function getAllDoctors() {
         select: { id: true, name: true, email: true, phone: true }
       },
       leaveDays: true,
-      leaveRequests: true
+      leaveRequests: true,
+      appointments: {
+        where: { rating: { not: null } },
+        select: { id: true, rating: true, feedback: true, ratedAt: true, patient: { select: { name: true } } }
+      }
     }
   });
 }

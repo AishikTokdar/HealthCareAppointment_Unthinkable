@@ -1,11 +1,21 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { authApi } from '../api/auth.api';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function CalendarSuccess() {
-  const { user } = useContext(AuthContext);
+  const { user, setUser } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    authApi.getMe()
+      .then(res => {
+        setUser(res.data);
+        localStorage.setItem('user', JSON.stringify(res.data));
+      })
+      .catch(() => {});
+  }, []);
 
   const handleReturn = () => {
     if (!user) {
