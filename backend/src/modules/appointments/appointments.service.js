@@ -326,6 +326,22 @@ async function rescheduleAppointment(user, appointmentId, newStartsAtIso) {
     throw err;
   }
 
+  const targetLeaveDate = new Date(newStartsAt);
+  targetLeaveDate.setHours(0, 0, 0, 0);
+
+  const leave = await prisma.leaveDay.findFirst({
+    where: {
+      doctorId: appt.doctorId,
+      date: targetLeaveDate
+    }
+  });
+
+  if (leave) {
+    const err = new Error('The doctor is marked on leave for this selected date. Please choose another date.');
+    err.statusCode = 400;
+    throw err;
+  }
+
   const conflict = await prisma.appointment.findFirst({
     where: {
       doctorId: appt.doctorId,
@@ -336,9 +352,13 @@ async function rescheduleAppointment(user, appointmentId, newStartsAtIso) {
   });
 
   if (conflict) {
-    const err = new Error('The selected slot is already booked or reserved');
-    err.statusCode = 409;
-    throw err;
+    if (conflict.status === 'PENDING' && conflict.holdExpiresAt && new Date(conflict.holdExpiresAt).getTime() < now.getTime()) {
+      await prisma.appointment.delete({ where: { id: conflict.id } }).catch(() => {});
+    } else {
+      const err = new Error('The doctor already has another appointment scheduled at this time. Please select a different time slot.');
+      err.statusCode = 409;
+      throw err;
+    }
   }
 
   await prisma.appointment.deleteMany({

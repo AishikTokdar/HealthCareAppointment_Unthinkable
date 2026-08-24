@@ -5,6 +5,7 @@ import { AuthContext } from '../../context/AuthContext';
 import Sidebar from '../../components/layout/Sidebar';
 import UrgencyBadge from '../../components/ui/UrgencyBadge';
 import Modal from '../../components/ui/Modal';
+import RescheduleModal from '../../components/patient/RescheduleModal';
 import { appointmentsApi } from '../../api/appointments.api';
 import { doctorsApi } from '../../api/doctors.api';
 import { generatePrescriptionPdf } from '../../utils/generatePrescriptionPdf';
@@ -22,13 +23,6 @@ export default function PatientAppointmentDetail() {
   const [cancelling, setCancelling] = useState(false);
 
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
-  const [rescheduleDate, setRescheduleDate] = useState('');
-  const [availableSlots, setAvailableSlots] = useState([]);
-  const [selectedSlot, setSelectedSlot] = useState('');
-  const [loadingSlots, setLoadingSlots] = useState(false);
-  const [rescheduling, setRescheduling] = useState(false);
-  const [rescheduleErr, setRescheduleErr] = useState('');
-  const [rescheduleMsg, setRescheduleMsg] = useState('');
 
   const [rating, setRating] = useState(5);
   const [feedback, setFeedback] = useState('');
@@ -123,48 +117,6 @@ export default function PatientAppointmentDetail() {
     finally { setCancelling(false); }
   };
 
-  const handleDateChangeForReschedule = async (dateVal) => {
-    setRescheduleDate(dateVal);
-    setSelectedSlot('');
-    setRescheduleErr('');
-    if (!dateVal || !appointment?.doctorId) return;
-
-    setLoadingSlots(true);
-    try {
-      const res = await doctorsApi.getSlots(appointment.doctorId, dateVal);
-      setAvailableSlots(res.data?.slots || res.data || []);
-    } catch (err) {
-      setRescheduleErr('Failed to fetch available slots for this date.');
-      setAvailableSlots([]);
-    } finally {
-      setLoadingSlots(false);
-    }
-  };
-
-  const handleRescheduleSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedSlot) {
-      setRescheduleErr('Please select a new time slot.');
-      return;
-    }
-    setRescheduling(true);
-    setRescheduleErr('');
-    setRescheduleMsg('');
-    try {
-      await appointmentsApi.reschedule(id, selectedSlot);
-      setRescheduleMsg('Appointment rescheduled successfully! An email notification has been dispatched to your doctor.');
-      setTimeout(() => {
-        setShowRescheduleModal(false);
-        setRescheduleMsg('');
-        fetchDetail();
-      }, 2000);
-    } catch (err) {
-      setRescheduleErr(err.response?.data?.error || 'Failed to reschedule appointment.');
-    } finally {
-      setRescheduling(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="page-layout">
@@ -219,7 +171,7 @@ export default function PatientAppointmentDetail() {
               )}
               {appointment.status === 'CONFIRMED' && (
                 <>
-                  <button onClick={() => { setShowRescheduleModal(true); setRescheduleDate(''); setAvailableSlots([]); setSelectedSlot(''); setRescheduleErr(''); setRescheduleMsg(''); }} className="btn btn-secondary btn-sm">
+                  <button onClick={() => setShowRescheduleModal(true)} className="btn btn-secondary btn-sm">
                     <Calendar size={14} /> Reschedule
                   </button>
                   <button onClick={() => setShowCancelModal(true)} className="btn btn-danger btn-sm">Cancel</button>
@@ -435,60 +387,12 @@ export default function PatientAppointmentDetail() {
           </div>
         </Modal>
 
-        <Modal isOpen={showRescheduleModal} onClose={() => setShowRescheduleModal(false)} title="Reschedule Appointment">
-          {rescheduleErr && <div className="alert alert-danger mb-12">{rescheduleErr}</div>}
-          {rescheduleMsg && <div className="alert alert-success mb-12">{rescheduleMsg}</div>}
-          <form onSubmit={handleRescheduleSubmit}>
-            <div className="form-group mb-14">
-              <label className="label">Select New Date</label>
-              <input
-                type="date"
-                className="input"
-                min={new Date().toISOString().split('T')[0]}
-                value={rescheduleDate}
-                onChange={(e) => handleDateChangeForReschedule(e.target.value)}
-                required
-              />
-            </div>
-
-            {loadingSlots && <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>Loading available slots...</div>}
-
-            {rescheduleDate && !loadingSlots && (
-              <div className="form-group mb-20">
-                <label className="label">Available Slots on {rescheduleDate}</label>
-                {availableSlots.length === 0 ? (
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>No open slots available for this date. Please pick another date.</div>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 8, maxHeight: 180, overflowY: 'auto', paddingRight: 4 }}>
-                    {availableSlots.map((slot) => {
-                      const slotIso = typeof slot === 'string' ? slot : slot.startsAt;
-                      const isSelected = selectedSlot === slotIso;
-                      const timeStr = new Date(slotIso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-                      return (
-                        <button
-                          key={slotIso}
-                          type="button"
-                          onClick={() => setSelectedSlot(slotIso)}
-                          className={`btn ${isSelected ? 'btn-primary' : 'btn-outline'}`}
-                          style={{ fontSize: 12, padding: '8px 4px', textAlign: 'center' }}
-                        >
-                          {timeStr}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button type="button" onClick={() => setShowRescheduleModal(false)} className="btn btn-ghost" style={{ flex: 1 }}>Cancel</button>
-              <button type="submit" disabled={rescheduling || !selectedSlot} className="btn btn-accent" style={{ flex: 1 }}>
-                {rescheduling ? 'Rescheduling...' : 'Confirm Reschedule'}
-              </button>
-            </div>
-          </form>
-        </Modal>
+        <RescheduleModal
+          isOpen={showRescheduleModal}
+          onClose={() => setShowRescheduleModal(false)}
+          appointment={appointment}
+          onSuccess={fetchDetail}
+        />
       </main>
     </div>
   );
