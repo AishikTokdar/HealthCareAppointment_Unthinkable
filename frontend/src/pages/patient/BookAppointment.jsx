@@ -133,16 +133,21 @@ export default function BookAppointment() {
               <div>
                 <label className="label mb-8">Available Slots</label>
                 <div className="slot-grid mb-24">
-                  {slotsData?.slots.map((slot, idx) => (
-                    <button
-                      key={idx}
-                      disabled={!slot.available}
-                      onClick={() => setSelectedSlot(slot)}
-                      className={`slot-btn${selectedSlot?.startsAt === slot.startsAt ? ' selected' : ''}`}
-                    >
-                      {new Date(slot.startsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </button>
-                  ))}
+                  {slotsData?.slots.map((slot, idx) => {
+                    const isPast = slot.isPast || (new Date(slot.startsAt).getTime() <= Date.now());
+                    const statusLabel = isPast ? ' (Slot Over)' : slot.isBooked ? ' (Booked)' : '';
+
+                    return (
+                      <button
+                        key={idx}
+                        disabled={!slot.available}
+                        onClick={() => setSelectedSlot(slot)}
+                        className={`slot-btn${selectedSlot?.startsAt === slot.startsAt ? ' selected' : ''}`}
+                      >
+                        {new Date(slot.startsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}{statusLabel}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

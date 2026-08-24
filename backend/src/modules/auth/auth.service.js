@@ -62,12 +62,12 @@ async function registerDoctor(data) {
         specialisation,
         slotDuration: parseInt(slotDuration, 10) || 30,
         workingHours: workingHours || {
-          MON: { start: '09:00', end: '17:00' },
-          TUE: { start: '09:00', end: '17:00' },
-          WED: { start: '09:00', end: '17:00' },
-          THU: { start: '09:00', end: '17:00' },
-          FRI: { start: '09:00', end: '17:00' },
-          SAT: { start: '09:00', end: '17:00' }
+          MON: { start: '10:00', end: '18:00' },
+          TUE: { start: '10:00', end: '18:00' },
+          WED: { start: '10:00', end: '18:00' },
+          THU: { start: '10:00', end: '18:00' },
+          FRI: { start: '10:00', end: '18:00' },
+          SAT: { start: '10:00', end: '18:00' }
         },
         bio,
         approvalStatus: 'PENDING'

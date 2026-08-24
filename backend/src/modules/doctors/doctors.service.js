@@ -71,7 +71,7 @@ async function getDoctorSlots(doctorId, dateString) {
   }
 
   const workingHours = doctor.workingHours || {};
-  const daySchedule = workingHours[dayName] || { start: '09:00', end: '17:00' };
+  const daySchedule = workingHours[dayName] || { start: '10:00', end: '18:00' };
 
   if (!daySchedule.start || !daySchedule.end) {
     return { available: false, reason: 'Clinic is closed on this day', slots: [] };
@@ -121,10 +121,14 @@ async function getDoctorSlots(doctorId, dateString) {
       return appt.startsAt.getTime() === slotStart.getTime();
     });
 
+    const isPast = slotStart.getTime() <= nowMs;
+
     slots.push({
       startsAt: slotStart.toISOString(),
       endsAt: slotEnd.toISOString(),
-      available: !isBooked && slotStart.getTime() > nowMs
+      available: !isBooked && !isPast,
+      isBooked: isBooked,
+      isPast: isPast
     });
 
     currentMs += slotDurationMs;

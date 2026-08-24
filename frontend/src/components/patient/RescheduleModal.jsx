@@ -133,9 +133,6 @@ export default function RescheduleModal({ isOpen, onClose, appointment, onSucces
           <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
             Current Appointment: <strong style={{ color: 'var(--text-main)' }}>{new Date(appointment.startsAt).toLocaleString('en-IN')}</strong>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 4 }}>
-            Rescheduling will instantly free your current slot for other patients and move your booking to the newly selected time.
-          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -215,6 +212,8 @@ export default function RescheduleModal({ isOpen, onClose, appointment, onSucces
                 {slotsData.slots.map((slot, idx) => {
                   const isSelected = selectedSlot?.startsAt === slot.startsAt;
                   const timeStr = new Date(slot.startsAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+                  const isPast = slot.isPast || (new Date(slot.startsAt).getTime() <= Date.now());
+                  const statusLabel = isPast ? '(Slot Over)' : slot.isBooked ? '(Booked)' : !slot.available ? '(Unavailable)' : '';
 
                   return (
                     <button
@@ -233,7 +232,7 @@ export default function RescheduleModal({ isOpen, onClose, appointment, onSucces
                         cursor: slot.available ? 'pointer' : 'not-allowed'
                       }}
                     >
-                      {timeStr} {!slot.available && '(Booked)'}
+                      {timeStr} {statusLabel && <span style={{ opacity: 0.75, fontSize: 11, marginLeft: 2 }}>{statusLabel}</span>}
                     </button>
                   );
                 })}
